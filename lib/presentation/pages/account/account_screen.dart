@@ -100,7 +100,8 @@ class AccountScreen extends ConsumerWidget {
                                   child: CircleAvatar(
                                     backgroundImage: userData?.photoURL != ''
                                         ? CachedNetworkImageProvider(
-                                            userData?.photoURL ?? '')
+                                            userData?.photoURL ?? '',
+                                          )
                                         : null,
                                     child: userData?.photoURL == ''
                                         ? const Icon(

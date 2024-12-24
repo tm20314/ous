@@ -12,58 +12,6 @@ class MyPageEdit extends ConsumerWidget {
   final ImagePicker _picker = ImagePicker();
   MyPageEdit({super.key});
 
-  Future<void> _pickAndCropImage(
-    ImageSource source,
-    WidgetRef ref,
-    UserData? userData,
-    BuildContext context,
-  ) async {
-    final image = await _picker.pickImage(source: source);
-    if (image != null) {
-      final croppedImage = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        cropStyle: CropStyle.circle,
-        compressQuality: 70, // 圧縮品質を70に設定
-        maxWidth: 512, // 最大幅を512に設定
-        maxHeight: 512, // 最大高さを512に設定
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: '画像をトリミング',
-            toolbarColor: Colors.deepOrange,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.square,
-            lockAspectRatio: true,
-            showCropGrid: false,
-          ),
-          IOSUiSettings(
-            title: '画像をトリミング',
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-            aspectRatioPickerButtonHidden: true,
-          ),
-        ],
-      );
-
-      if (croppedImage != null) {
-        final imageUrl = await ref
-            .read(userRepositoryProvider)
-            .uploadProfileImage(XFile(croppedImage.path));
-        if (imageUrl != null) {
-          await ref.read(userRepositoryProvider).updateUser(
-                userData?.uid ?? '',
-                photoURL: imageUrl,
-              );
-          ref.refresh(userStreamProvider);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('プロフィール画像が更新されました。')),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userDataAsyncValue = ref.watch(userStreamProvider);
@@ -202,5 +150,56 @@ class MyPageEdit extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _pickAndCropImage(
+    ImageSource source,
+    WidgetRef ref,
+    UserData? userData,
+    BuildContext context,
+  ) async {
+    final image = await _picker.pickImage(source: source);
+    if (image != null) {
+      final croppedImage = await ImageCropper().cropImage(
+        sourcePath: image.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 70, // 圧縮品質を70に設定
+        maxWidth: 512, // 最大幅を512に設定
+        maxHeight: 512, // 最大高さを512に設定
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: '画像をトリミング',
+            toolbarColor: Colors.deepOrange,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            showCropGrid: false,
+          ),
+          IOSUiSettings(
+            title: '画像をトリミング',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            aspectRatioPickerButtonHidden: true,
+          ),
+        ],
+      );
+
+      if (croppedImage != null) {
+        final imageUrl = await ref
+            .read(userRepositoryProvider)
+            .uploadProfileImage(XFile(croppedImage.path));
+        if (imageUrl != null) {
+          await ref.read(userRepositoryProvider).updateUser(
+                userData?.uid ?? '',
+                photoURL: imageUrl,
+              );
+          ref.refresh(userStreamProvider);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('プロフィール画像が更新されました。')),
+          );
+        }
+      }
+    }
   }
 }

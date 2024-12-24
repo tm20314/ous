@@ -70,6 +70,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '701179487640',
     projectId: 'ous-app-8b971',
     storageBucket: 'ous-app-8b971.appspot.com',
+    androidClientId: '701179487640-imvgicnpkj8n1md178eicjccfcb5v1al.apps.googleusercontent.com',
     iosClientId: '701179487640-ns65rh2t10ucm8i7lrfgpthba13pa2ki.apps.googleusercontent.com',
     iosBundleId: 'com.ous.unoffical.app',
   );
