@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ReportButton extends StatelessWidget {
   const ReportButton({super.key});
@@ -20,8 +20,10 @@ class ReportButton extends StatelessWidget {
         ),
         child: GestureDetector(
           onTap: () async {
-            launchUrlString(
-              'https://docs.google.com/forms/d/e/1FAIpQLSepC82BWAoARJVh4WeGCFOuIpWLyaPfqqXn524SqxyBSA9LwQ/viewform',
+            launchUrl(
+              Uri.parse(
+                'https://docs.google.com/forms/d/e/1FAIpQLSepC82BWAoARJVh4WeGCFOuIpWLyaPfqqXn524SqxyBSA9LwQ/viewform',
+              ),
             );
           },
           child: const Center(

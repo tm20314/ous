@@ -109,6 +109,8 @@ class ReviewSearchDelegate extends SearchDelegate<String> {
                       MaterialPageRoute(
                         builder: (context) => DetailScreen(
                           review: review,
+                          collectionName: gakubu,
+                          documentId: review.ID ?? '',
                         ),
                       ),
                     );

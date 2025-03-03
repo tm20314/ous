@@ -4,8 +4,13 @@ import 'package:rotated_corner_decoration/rotated_corner_decoration.dart';
 
 class ReviewCard extends StatelessWidget {
   final Review review;
+  final String collectionName;
 
-  const ReviewCard({Key? key, required this.review}) : super(key: key);
+  const ReviewCard({
+    super.key,
+    required this.review,
+    required this.collectionName,
+  });
 
   @override
   Widget build(BuildContext context) {

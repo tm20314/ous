@@ -15,7 +15,7 @@ const String mylogUrl =
     'https://mylog.pub.ous.ac.jp/uprx/up/pk/pky501/Pky50101.xhtml';
 
 class NavBar extends StatelessWidget {
-  const NavBar({Key? key}) : super(key: key);
+  const NavBar({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -62,15 +62,24 @@ class NavBar extends StatelessWidget {
     );
   }
 
-  ListTile _buildMenuItem({
+  Widget _buildMenuItem({
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    bool showDivider = false,
   }) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      onTap: onTap,
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(icon),
+          title: Text(title),
+          onTap: onTap,
+          trailing: const Icon(Icons.chevron_right),
+          dense: true,
+          visualDensity: VisualDensity.comfortable,
+        ),
+        if (showDivider) const Divider(),
+      ],
     );
   }
 

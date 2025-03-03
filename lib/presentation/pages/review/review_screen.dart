@@ -7,12 +7,14 @@ import 'package:flutter/material.dart';
 // Project imports:
 import 'package:ous/gen/assets.gen.dart';
 import 'package:ous/infrastructure/config/analytics_service.dart';
+import 'package:ous/presentation/pages/review/popular_reviews.dart';
 import 'package:ous/presentation/pages/review/review_analytics_screen.dart';
 import 'package:ous/presentation/widgets/drawer/drawer.dart';
 import 'package:ous/presentation/widgets/review/review_top_component.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 class ReviewScreen extends StatefulWidget {
-  const ReviewScreen({Key? key}) : super(key: key);
+  const ReviewScreen({super.key});
 
   @override
   State<ReviewScreen> createState() => _ReviewState();
@@ -162,20 +164,76 @@ class _ReviewState extends State<ReviewScreen> {
 }
 
 class _ReviewTopScreenState extends State<ReviewTopScreen> {
+  // 現在のページインデックス
+  int _currentPageIndex = 0;
+
+  // ページごとのタイトル
+  final List<String> _pageTitles = [
+    '講義評価',
+    '投稿件数',
+    'みんながよく見ている講義',
+  ];
+
+  // PageControllerを追加
+  final PageController _pageController = PageController(initialPage: 0);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('講義評価'),
+        title: Text(_pageTitles[_currentPageIndex]),
       ),
       drawer: const NavBar(),
-      body: PageView(
-        controller: PageController(initialPage: 0),
-        children: const [
-          ReviewScreen(),
-          AnalyticsScreen(),
+      body: Stack(
+        children: [
+          // PageView
+          PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPageIndex = index;
+              });
+            },
+            children: const [
+              ReviewScreen(),
+              AnalyticsScreen(),
+              PopularReviewsPage(),
+            ],
+          ),
+
+          // ページインジケーター
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SmoothPageIndicator(
+                controller: _pageController,
+                count: 3,
+                effect: WormEffect(
+                  dotHeight: 10,
+                  dotWidth: 10,
+                  activeDotColor: Theme.of(context).primaryColor,
+                  dotColor: Colors.grey.shade300,
+                ),
+                onDotClicked: (index) {
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose(); // コントローラーの破棄
+    super.dispose();
   }
 }
