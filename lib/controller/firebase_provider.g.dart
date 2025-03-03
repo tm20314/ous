@@ -20,6 +20,8 @@ final authStateChangeProvider = AutoDisposeStreamProvider<User?>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef AuthStateChangeRef = AutoDisposeStreamProviderRef<User?>;
 String _$firebaseAuthHash() => r'7791bf70ce0f01bf991a53a76abc915478673c0b';
 
@@ -34,6 +36,8 @@ final firebaseAuthProvider = AutoDisposeProvider<FirebaseAuth>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef FirebaseAuthRef = AutoDisposeProviderRef<FirebaseAuth>;
 String _$firebaseFirestoreHash() => r'230b9276da2e44bb1aa6b300e1ddbb2f93c422da';
 
@@ -50,6 +54,8 @@ final firebaseFirestoreProvider =
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef FirebaseFirestoreRef = AutoDisposeProviderRef<FirebaseFirestore>;
 String _$uidHash() => r'3a8b26871a74b5c6306648dd29ebc3032a6b4a57';
 
@@ -64,6 +70,8 @@ final uidProvider = AutoDisposeProvider<String>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef UidRef = AutoDisposeProviderRef<String>;
 // ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member
+// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

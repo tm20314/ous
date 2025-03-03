@@ -16,7 +16,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../widgets/drawer/drawer.dart';
 
 class Home extends ConsumerStatefulWidget {
-  const Home({Key? key}) : super(key: key);
+  const Home({super.key});
 
   @override
   HomeState createState() => HomeState();
@@ -24,21 +24,6 @@ class Home extends ConsumerStatefulWidget {
 
 class HomeState extends ConsumerState<Home> {
   final VersionCheckService _versionCheckService = VersionCheckService();
-
-  @override
-  void initState() {
-    super.initState();
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    await AnalyticsService().setCurrentScreen(AnalyticsServiceScreenName.home);
-    await _checkVersion();
-  }
-
-  Future<void> _checkVersion() async {
-    await _versionCheckService.checkVersion(context);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,41 +82,33 @@ class HomeState extends ConsumerState<Home> {
                 ),
                 const Card(
                   child: Padding(
-                    padding: EdgeInsets.only(
-                      top: 10,
-                      bottom: 10,
-                    ),
+                    padding: EdgeInsets.symmetric(vertical: 10),
                     child: Column(
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            ButtonBar(
-                              children: [
-                                BusInfoButton(
-                                  label: '岡山駅西口発',
-                                  url: BusUrls.okayamaStation,
-                                ),
-                                BusInfoButton(
-                                  label: '岡山理科大学正門発',
-                                  url: BusUrls.okayamaRikaUniversity,
-                                ),
-                              ],
+                            BusInfoButton(
+                              label: '岡山駅西口発',
+                              url: BusUrls.okayamaStation,
+                            ),
+                            BusInfoButton(
+                              label: '岡山理科大学正門発',
+                              url: BusUrls.okayamaRikaUniversity,
                             ),
                           ],
                         ),
+                        SizedBox(height: 10), // Add spacing between rows
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            ButtonBar(
-                              children: [
-                                BusInfoButton(
-                                  label: '岡山天満屋発',
-                                  url: BusUrls.okayamaTenmaya,
-                                ),
-                                BusInfoButton(
-                                  label: '岡山理科大学東門発',
-                                  url: BusUrls.okayamaRikaUniversityEastGate,
-                                ),
-                              ],
+                            BusInfoButton(
+                              label: '岡山天満屋発',
+                              url: BusUrls.okayamaTenmaya,
+                            ),
+                            BusInfoButton(
+                              label: '岡山理科大学東門発',
+                              url: BusUrls.okayamaRikaUniversityEastGate,
                             ),
                           ],
                         ),
@@ -153,5 +130,20 @@ class HomeState extends ConsumerState<Home> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _checkVersion() async {
+    await _versionCheckService.checkVersion(context);
+  }
+
+  Future<void> _initialize() async {
+    await AnalyticsService().setCurrentScreen(AnalyticsServiceScreenName.home);
+    await _checkVersion();
   }
 }

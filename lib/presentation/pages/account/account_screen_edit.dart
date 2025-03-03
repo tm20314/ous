@@ -116,16 +116,18 @@ class MyPageEdit extends ConsumerWidget {
                               userData?.uid ?? '',
                               name: nameController.text,
                             );
+
                         if (!context.mounted) return;
                         ref.refresh(userStreamProvider);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('名前が更新されました。')),
                         );
-                        Navigator.of(context).pop();
+                        Navigator.of(context).pop(true);
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('変更がありません。')),
                         );
+                        Navigator.of(context).pop(false);
                       }
                     },
                     child: const Text('名前を保存'),

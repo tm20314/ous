@@ -12,7 +12,7 @@ _$UserDataImpl _$$UserDataImplFromJson(Map<String, dynamic> json) =>
       email: json['email'] as String,
       uid: json['uid'] as String,
       photoURL: json['photoURL'] as String?,
-      reviewCount: json['reviewCount'] as int? ?? 0,
+      reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
       createdAt: const DateTimeTimestampConverter()
           .fromJson(json['createdAt'] as Timestamp),
     );

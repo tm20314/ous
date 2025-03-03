@@ -45,8 +45,12 @@ mixin _$Review {
   String? get zyugyoukeisiki => throw _privateConstructorUsedError;
   String? get zyugyoumei => throw _privateConstructorUsedError;
 
+  /// Serializes this Review to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of Review
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ReviewCopyWith<Review> get copyWith => throw _privateConstructorUsedError;
 }
 
@@ -90,6 +94,8 @@ class _$ReviewCopyWithImpl<$Res, $Val extends Review>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of Review
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -249,6 +255,8 @@ class __$$ReviewImplCopyWithImpl<$Res>
       _$ReviewImpl _value, $Res Function(_$ReviewImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of Review
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -491,7 +499,7 @@ class _$ReviewImpl implements _Review {
                 other.zyugyoumei == zyugyoumei));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hashAll([
         runtimeType,
@@ -519,7 +527,9 @@ class _$ReviewImpl implements _Review {
         zyugyoumei
       ]);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of Review
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ReviewImplCopyWith<_$ReviewImpl> get copyWith =>
@@ -560,7 +570,8 @@ abstract class _Review implements Review {
 
   factory _Review.fromJson(Map<String, dynamic> json) = _$ReviewImpl.fromJson;
 
-  @override // ignore: non_constant_identifier_names
+// ignore: non_constant_identifier_names
+  @override
   String? get ID;
   @override
   String? get accountemail;
@@ -605,8 +616,11 @@ abstract class _Review implements Review {
   String? get zyugyoukeisiki;
   @override
   String? get zyugyoumei;
+
+  /// Create a copy of Review
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ReviewImplCopyWith<_$ReviewImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

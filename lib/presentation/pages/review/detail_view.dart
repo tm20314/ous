@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // Project imports:
 import 'package:ous/gen/review_data.dart';
 import 'package:ous/infrastructure/repositories/view_count_repository.dart';
+import 'package:ous/presentation/widgets/review/detail/comments_section.dart';
 import 'package:ous/presentation/widgets/review/detail/date_section.dart';
 import 'package:ous/presentation/widgets/review/detail/gauge_section.dart';
 import 'package:ous/presentation/widgets/review/detail/modal_widget.dart';
@@ -141,6 +142,12 @@ class _DetailScreenState extends State<DetailScreen> {
         const SizedBox(height: 20.0),
         const Center(child: ReportButton()),
         const SizedBox(height: 20.0),
+
+        // コメントセクションを追加
+        CommentsSection(
+          reviewId: widget.documentId,
+          collectionName: widget.collectionName,
+        ),
       ],
     );
   }
