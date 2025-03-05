@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:ous/domain/review_provider.dart';
 import 'package:ous/gen/assets.gen.dart';
+import 'package:ous/gen/review_data.dart';
 import 'package:ous/presentation/pages/review/detail_view.dart';
 import 'package:ous/presentation/widgets/review/filter_modal.dart';
 import 'package:ous/presentation/widgets/review/review_card.dart';
@@ -75,56 +76,9 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
       ),
       body: Center(
         child: reviewsAsync.when(
-          loading: () => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(
-                  'レビューを読み込み中...',
-                  style: TextStyle(color: Theme.of(context).hintColor),
-                ),
-              ],
-            ),
-          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'データの読み込みに失敗しました',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('再試行'),
-                  onPressed: () => ref.refresh(
-                    reviewsProvider(
-                      (
-                        widget.gakubu,
-                        _selectedBumon,
-                        _selectedGakki,
-                        _selectedTanni,
-                        _selectedZyugyoukeisiki,
-                        _selectedSyusseki,
-                        _searchQuery,
-                        _selectedDateOrder,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: Text('エラーが発生しました: $error'),
           ),
           data: (reviews) {
             if (reviews.isEmpty) {
@@ -132,60 +86,40 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 150,
-                      height: 150,
-                      child: Image(
-                        image: AssetImage(Assets.icon.found.path),
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      '結果が見つかりませんでした',
-                      style: Theme.of(context).textTheme.titleLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _hasActiveFilters()
-                          ? 'フィルターを変更して再度検索してみてください'
-                          : '別の条件で検索してみてください',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).hintColor,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
+                    Assets.icon.found.image(width: 150),
                     const SizedBox(height: 16),
-                    if (_hasActiveFilters())
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.filter_alt_off),
-                        label: const Text('フィルターをクリア'),
-                        onPressed: _clearAllFilters,
-                      ),
+                    Text(
+                      'レビューがありません',
+                      style: TextStyle(color: Theme.of(context).hintColor),
+                    ),
                   ],
                 ),
               );
             }
+
             return Scrollbar(
               child: AnimationLimiter(
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 1.0, // 正方形にする
+                    childAspectRatio: 1.0,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
                   ),
                   padding: const EdgeInsets.all(8),
                   itemCount: reviews.length,
                   itemBuilder: (context, index) {
-                    final review = reviews[index];
+                    // QueryDocumentSnapshot型として扱う
+                    final reviewDoc = reviews[index];
+                    // データを取得してReviewオブジェクトに変換
+                    final review = Review.fromJson(reviewDoc.data());
+
                     return AnimationConfiguration.staggeredGrid(
                       position: index,
-                      duration: const Duration(milliseconds: 300), // 短縮
+                      duration: const Duration(milliseconds: 300),
                       columnCount: 2,
                       child: SlideAnimation(
-                        horizontalOffset: 50.0, // より軽量なアニメーション
+                        horizontalOffset: 50.0,
                         child: FadeInAnimation(
                           child: GestureDetector(
                             onTap: () {
@@ -195,13 +129,14 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
                                   builder: (context) => DetailScreen(
                                     review: review,
                                     collectionName: widget.gakubu,
-                                    documentId: review.ID ?? '',
+                                    documentId: reviewDoc.id,
                                   ),
                                 ),
                               );
                             },
                             child: ReviewCard(
                               review: review,
+                              documentId: reviewDoc.id,
                               collectionName: widget.gakubu,
                             ),
                           ),

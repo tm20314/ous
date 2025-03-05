@@ -1,8 +1,17 @@
 // Dart imports:
 // Flutter imports:
+import 'package:badges/badges.dart' as badges;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ous/domain/comment_provider.dart' as comment_provider;
+import 'package:ous/domain/like_provider.dart';
+import 'package:ous/domain/review_provider.dart' as review_provider;
+import 'package:ous/domain/view_count_provider.dart' as view_count_provider;
 // Project imports:
 import 'package:ous/gen/review_data.dart';
+import 'package:ous/infrastructure/repositories/review_repository.dart';
 import 'package:ous/infrastructure/repositories/view_count_repository.dart';
 import 'package:ous/presentation/widgets/review/detail/comments_section.dart';
 import 'package:ous/presentation/widgets/review/detail/date_section.dart';
@@ -13,10 +22,10 @@ import 'package:ous/presentation/widgets/review/detail/report_button.dart';
 import 'package:ous/presentation/widgets/review/detail/text_section.dart';
 import 'package:ous/presentation/widgets/review/detail/view_count_display.dart';
 
-class DetailScreen extends StatefulWidget {
+class DetailScreen extends ConsumerStatefulWidget {
   final Review review;
   final String collectionName;
-  final String documentId;
+  final String documentId; // これはFirestoreのドキュメントID
 
   const DetailScreen({
     super.key,
@@ -26,18 +35,34 @@ class DetailScreen extends StatefulWidget {
   });
 
   @override
-  State<DetailScreen> createState() => _DetailScreenState();
+  ConsumerState<DetailScreen> createState() => _DetailScreenState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
+class _DetailScreenState extends ConsumerState<DetailScreen> {
   final ViewCountRepository _viewCountRepository = ViewCountRepository();
 
   @override
   Widget build(BuildContext context) {
-    final review = widget.review;
+    // いいね数を取得
+    final likeCountAsync = ref.watch(likeCountProvider(widget.documentId));
+    // ユーザーがいいねしているかを取得
+    final hasLikedAsync = ref.watch(hasUserLikedProvider(widget.documentId));
+
+    // ユーザー情報を取得
+    final user = FirebaseAuth.instance.currentUser;
+
+    // 学内ユーザーかどうかを確認（ous.jpドメインのメールアドレスを持つユーザー）
+    final isOusUser = user != null &&
+        !user.isAnonymous &&
+        user.email != null &&
+        user.email!.endsWith('@ous.jp');
+
+    // ゲストユーザーかどうかを確認
+    final isGuest = user == null || user.isAnonymous;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(review.zyugyoumei ?? '不明'),
+        title: const Text('講義詳細'),
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
@@ -45,27 +70,132 @@ class _DetailScreenState extends State<DetailScreen> {
               showModalBottomSheet(
                 context: context,
                 builder: (BuildContext context) {
-                  return ModalWidget(review: review);
+                  return ModalWidget(review: widget.review);
                 },
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () async {
+              // 現在使用しているIDを表示
+              print('デバッグ情報:');
+              print('documentId: ${widget.documentId}');
+              print('review.ID: ${widget.review.ID}');
+
+              // いいね状態を確認
+              final repository = ref.read(likeRepositoryProvider);
+              final hasLiked = await repository.hasUserLiked(widget.documentId);
+              print('いいね状態: $hasLiked');
+
+              // Firestoreのパスを確認
+              final path = '/${widget.collectionName}/${widget.documentId}';
+              print('Firestoreパス: $path');
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('デバッグ情報をコンソールに出力しました'),
+                  duration: const Duration(seconds: 2),
+                ),
               );
             },
           ),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // 画面幅に基づいてレイアウトを調整
-          final isWideScreen = constraints.maxWidth > 600;
+      // FloatingActionButtonを学内ユーザーのみに表示
+      floatingActionButton: isOusUser
+          ? badges.Badge(
+              position: badges.BadgePosition.topEnd(top: -12, end: -5),
+              badgeContent: likeCountAsync.when(
+                data: (count) => Text(
+                  count.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                loading: () => const Text(
+                  '...',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                error: (_, __) => const Text(
+                  '0',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+              badgeStyle: const badges.BadgeStyle(
+                badgeColor: Colors.red,
+                padding: EdgeInsets.all(5),
+              ),
+              child: FloatingActionButton(
+                onPressed: () async {
+                  final hasLiked = await ref.read(
+                    hasUserLikedProvider(widget.documentId).future,
+                  );
 
-          return Container(
-            margin: EdgeInsets.all(isWideScreen ? 24 : 15),
-            child: SingleChildScrollView(
-              child: isWideScreen
-                  ? _buildWideLayout(review)
-                  : _buildNormalLayout(review),
-            ),
+                  if (hasLiked) {
+                    // いいねを削除
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('いいねを取り消しました'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                    await ref
+                        .read(likeRepositoryProvider)
+                        .removeLike(widget.documentId);
+                  } else {
+                    // いいねを追加
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('いいねしました'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                    await ref.read(likeRepositoryProvider).addLike(
+                        widget.documentId,
+                        widget.collectionName,
+                        widget.review);
+                  }
+                },
+                child: hasLikedAsync.when(
+                  data: (hasLiked) => Icon(
+                    hasLiked ? Icons.favorite : Icons.favorite_border,
+                    color: hasLiked ? Colors.white : null,
+                  ),
+                  loading: () => const CircularProgressIndicator(
+                    color: Colors.white,
+                  ),
+                  error: (_, __) => const Icon(Icons.favorite_border),
+                ),
+              ),
+            )
+          : null, // 学内ユーザー以外は表示しない
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // 各プロバイダーを無効化して再取得を強制
+          ref.invalidate(review_provider.reviewProvider(widget.documentId));
+          ref.invalidate(comment_provider.commentsProvider(widget.documentId));
+          ref.invalidate(
+            view_count_provider
+                .viewCountProvider((widget.documentId, widget.collectionName)),
           );
         },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // 画面幅に基づいてレイアウトを調整
+              final isWideScreen = constraints.maxWidth > 600;
+
+              return Container(
+                margin: EdgeInsets.all(isWideScreen ? 24 : 15),
+                child: SingleChildScrollView(
+                  child: isWideScreen
+                      ? _buildWideLayout(widget.review)
+                      : _buildNormalLayout(widget.review),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -73,9 +203,43 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   void initState() {
     super.initState();
-    // 画面表示時に閲覧数をインクリメント
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    // 画面表示時にデータを更新
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _refreshData();
+
+      // レビュー情報を出力
+      print(
+        'レビュー情報: ID=${widget.review.ID}, ドキュメントID=${widget.documentId}, コレクション=${widget.collectionName}',
+      );
+
+      // 閲覧数を更新
       _incrementViewCount();
+
+      // デバッグ用：閲覧数データを確認
+      Future.delayed(const Duration(seconds: 2), () async {
+        await _checkViewCountData();
+
+        // 内部IDから実際のドキュメントIDを取得して確認
+        final reviewRepository = ReviewRepository();
+        final actualDocId = await reviewRepository
+            .getDocumentIdByInternalId(widget.review.ID ?? '');
+        if (actualDocId != null) {
+          print('内部ID ${widget.review.ID} の実際のドキュメントID: $actualDocId');
+
+          // 実際のドキュメントIDでも閲覧数を確認
+          final doc = await FirebaseFirestore.instance
+              .collection('viewCounts')
+              .doc(actualDocId)
+              .get();
+
+          if (doc.exists) {
+            print('実際のドキュメントIDでの閲覧数データ確認: ${doc.data()}');
+          } else {
+            print('実際のドキュメントIDでの閲覧数データが存在しません: viewCounts/$actualDocId');
+          }
+        }
+      });
     });
   }
 
@@ -154,6 +318,9 @@ class _DetailScreenState extends State<DetailScreen> {
 
   // 投稿情報セクションを構築するヘルパーメソッド
   Widget _buildPostInfoSection(Review review) {
+    // いいね数を取得
+    final likeCountAsync = ref.watch(likeCountProvider(widget.documentId));
+
     return _buildSection(
       title: '投稿情報',
       children: [
@@ -162,7 +329,54 @@ class _DetailScreenState extends State<DetailScreen> {
         if (review.senden?.isNotEmpty ?? false)
           TextSection(title: '宣伝', content: review.senden),
         const SizedBox(height: 8),
-        ViewCountDisplay(documentId: widget.documentId),
+
+        // 閲覧数とイイね数をカードで表示
+        Card(
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                // 閲覧数
+                Column(
+                  children: [
+                    const Icon(Icons.visibility, color: Colors.blue),
+                    const SizedBox(height: 4),
+                    const Text('閲覧数'),
+                    const SizedBox(height: 4),
+                    ViewCountDisplay(
+                      documentId: widget.documentId,
+                      collectionName: widget.collectionName,
+                    ),
+                  ],
+                ),
+
+                // いいね数
+                Column(
+                  children: [
+                    const Icon(Icons.favorite, color: Colors.red),
+                    const SizedBox(height: 4),
+                    const Text('いいね数'),
+                    const SizedBox(height: 4),
+                    likeCountAsync.when(
+                      data: (count) => Text(
+                        count.toString(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      loading: () => const Text('...'),
+                      error: (_, __) => const Text('0'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -271,10 +485,54 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  // デバッグ用：閲覧数データを直接確認
+  Future<void> _checkViewCountData() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('viewCounts')
+          .doc(widget.documentId)
+          .get();
+
+      if (doc.exists) {
+        print('閲覧数データ確認: ${doc.data()}');
+      } else {
+        print('閲覧数データが存在しません: viewCounts/${widget.documentId}');
+      }
+    } catch (e) {
+      print('閲覧数データの確認に失敗しました: $e');
+    }
+  }
+
+  // 閲覧数を更新するメソッド
   void _incrementViewCount() async {
-    await _viewCountRepository.incrementViewCount(
-      widget.documentId,
-      widget.collectionName,
+    try {
+      print('閲覧数更新開始: ${widget.documentId} (${widget.collectionName})');
+
+      // ViewCountRepositoryを直接使用して閲覧数を更新
+      await _viewCountRepository.incrementViewCount(
+        widget.documentId,
+        widget.collectionName,
+      );
+
+      // プロバイダーを無効化して再取得を強制
+      ref.invalidate(
+        view_count_provider
+            .viewCountProvider((widget.documentId, widget.collectionName)),
+      );
+
+      print('閲覧数更新処理完了: ${widget.documentId}');
+    } catch (e) {
+      print('閲覧数の更新に失敗しました: $e');
+    }
+  }
+
+  // データ更新メソッド
+  void _refreshData() {
+    ref.invalidate(review_provider.reviewProvider(widget.documentId));
+    ref.invalidate(comment_provider.commentsProvider(widget.documentId));
+    ref.invalidate(
+      view_count_provider
+          .viewCountProvider((widget.documentId, widget.collectionName)),
     );
   }
 }

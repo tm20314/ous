@@ -5,6 +5,16 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'firebase_provider.g.dart';
 
+// 認証状態の変更を監視するプロバイダー
+final authStateChangeProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});
+
+// 現在のユーザーを取得するプロバイダー
+final currentUserProvider = Provider<User?>((ref) {
+  return FirebaseAuth.instance.currentUser;
+});
+
 // 認証状態を監視するプロバイダー
 @riverpod
 Stream<User?> authStateChange(AuthStateChangeRef ref) {

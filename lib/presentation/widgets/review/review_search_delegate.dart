@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
 import 'package:ous/domain/review_provider.dart';
 import 'package:ous/gen/assets.gen.dart';
+import 'package:ous/gen/review_data.dart';
 import 'package:ous/presentation/pages/review/detail_view.dart';
 
 class ReviewSearchDelegate extends SearchDelegate<String> {
@@ -99,7 +100,8 @@ class ReviewSearchDelegate extends SearchDelegate<String> {
             return ListView.builder(
               itemCount: reviews.length,
               itemBuilder: (context, index) {
-                final review = reviews[index];
+                final reviewDoc = reviews[index];
+                final review = Review.fromJson(reviewDoc.data());
                 return ListTile(
                   title: Text(review.zyugyoumei ?? ''),
                   subtitle: Text(review.kousimei ?? ''),
@@ -110,7 +112,7 @@ class ReviewSearchDelegate extends SearchDelegate<String> {
                         builder: (context) => DetailScreen(
                           review: review,
                           collectionName: gakubu,
-                          documentId: review.ID ?? '',
+                          documentId: reviewDoc.id,
                         ),
                       ),
                     );

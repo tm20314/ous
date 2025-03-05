@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,13 +13,17 @@ class DrawerUserHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ゲストユーザーかどうかを確認
+    final isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? true;
+
     final userDataAsyncValue = ref.watch(userStreamProvider);
     return userDataAsyncValue.when(
       data: (userData) => _UserAccountsDrawerHeader(
-        displayName: userData?.displayName ?? 'Guest',
-        email: userData?.email ?? 'guest@example.com',
+        displayName: isGuest ? 'ゲスト' : (userData?.displayName ?? 'ゲスト'),
+        email: isGuest ? 'ゲストユーザー' : (userData?.email ?? 'guest@example.com'),
         photoUrl: userData?.photoURL,
         onTap: () => _navigateToAccountScreen(context),
+        isGuest: isGuest,
       ),
       loading: () => const _LoadingView(),
       error: (error, _) => _ErrorView(error: error.toString()),
@@ -111,12 +116,14 @@ class _UserAccountsDrawerHeader extends StatelessWidget {
   final String email;
   final String? photoUrl;
   final VoidCallback onTap;
+  final bool isGuest;
 
   const _UserAccountsDrawerHeader({
     required this.displayName,
     required this.email,
     this.photoUrl,
     required this.onTap,
+    this.isGuest = false,
   });
 
   @override
@@ -130,10 +137,10 @@ class _UserAccountsDrawerHeader extends StatelessWidget {
           style: const TextStyle(color: Colors.white),
         ),
         currentAccountPicture: CircleAvatar(
-          backgroundImage: photoUrl != ''
+          backgroundImage: !isGuest && photoUrl != ''
               ? CachedNetworkImageProvider(photoUrl ?? '')
               : null,
-          child: photoUrl == ''
+          child: isGuest || photoUrl == ''
               ? const Icon(
                   Icons.person,
                 )

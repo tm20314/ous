@@ -15,6 +15,19 @@ import 'package:settings_ui/settings_ui.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+String _getThemeModeName(ThemeMode mode) {
+  switch (mode) {
+    case ThemeMode.system:
+      return 'システム設定に従う';
+    case ThemeMode.light:
+      return 'ライト';
+    case ThemeMode.dark:
+      return 'ダーク';
+    default:
+      return '不明';
+  }
+}
+
 class SettingPage extends ConsumerWidget {
   const SettingPage({super.key});
   @override
@@ -52,12 +65,9 @@ class SettingPage extends ConsumerWidget {
                         ),
                       );
                       if (selectedMode != null) {
-                        ref.read(themeProvider.notifier).updateTheme(
-                              AppTheme(
-                                mode: selectedMode,
-                                primarySwatch: theme.primarySwatch,
-                              ),
-                            );
+                        ref
+                            .read(themeProvider.notifier)
+                            .setThemeMode(selectedMode);
                       }
                     },
                   ),
@@ -89,12 +99,9 @@ class SettingPage extends ConsumerWidget {
                         ),
                       );
                       if (selectedColor != null) {
-                        ref.read(themeProvider.notifier).updateTheme(
-                              AppTheme(
-                                mode: theme.mode,
-                                primarySwatch: selectedColor,
-                              ),
-                            );
+                        ref
+                            .read(themeProvider.notifier)
+                            .setPrimaryColor(selectedColor);
                       }
                     },
                   ),
@@ -255,18 +262,5 @@ class SettingPage extends ConsumerWidget {
         },
       ),
     );
-  }
-}
-
-String _getThemeModeName(ThemeMode mode) {
-  switch (mode) {
-    case ThemeMode.system:
-      return 'システム設定に従う';
-    case ThemeMode.light:
-      return 'ライト';
-    case ThemeMode.dark:
-      return 'ダーク';
-    default:
-      return '不明';
   }
 }

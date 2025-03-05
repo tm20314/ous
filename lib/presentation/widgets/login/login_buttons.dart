@@ -2,23 +2,41 @@
 // Package imports:
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Project imports:
-import 'package:ous/infrastructure/login_auth_service.dart';
+import 'package:ous/infrastructure/auth_service.dart';
+import 'package:ous/main.dart';
 import 'package:ous/presentation/pages/main_screen.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class AppleSignInButton extends LoginButton {
   const AppleSignInButton({
-    Key? key,
-    required AuthService authService,
-  }) : super(key: key, authService: authService);
+    super.key,
+    required super.authService,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ElevatedButton(
       style: getButtonStyle(context),
       onPressed: () async {
-        await showConfirmationDialog(context);
+        try {
+          debugPrint('Apple ログイン開始');
+          final userCredential = await signIn();
+          debugPrint('Apple ログイン結果: ${userCredential != null ? "成功" : "失敗"}');
+
+          if (userCredential != null && context.mounted) {
+            onSignInSuccess(context, ref);
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Appleでのログインに失敗しました')),
+            );
+          }
+        } on Exception catch (e) {
+          debugPrint('Apple ログイン例外: $e');
+          if (!context.mounted) return;
+          onSignInFailure(context, e);
+        }
       },
       child: getButtonChild(context),
     );
@@ -82,9 +100,9 @@ class ColorConstants {
 
 class GoogleSignInButton extends LoginButton {
   const GoogleSignInButton({
-    Key? key,
-    required AuthService authService,
-  }) : super(key: key, authService: authService);
+    super.key,
+    required super.authService,
+  });
 
   @override
   Widget getButtonChild(BuildContext context) {
@@ -124,16 +142,16 @@ class GoogleSignInButton extends LoginButton {
 
 class GuestSignInButton extends LoginButton {
   const GuestSignInButton({
-    Key? key,
-    required AuthService authService,
-  }) : super(key: key, authService: authService);
+    super.key,
+    required super.authService,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ElevatedButton(
       style: getButtonStyle(context),
       onPressed: () async {
-        await showConfirmationDialog(context);
+        await showConfirmationDialog(context, ref);
       },
       child: getButtonChild(context),
     );
@@ -174,22 +192,21 @@ class GuestSignInButton extends LoginButton {
   Future<UserCredential?> signIn() => _authService.signInAnonymously();
 }
 
-abstract class LoginButton extends StatelessWidget {
+abstract class LoginButton extends ConsumerWidget {
   final AuthService _authService;
 
-  const LoginButton({Key? key, required AuthService authService})
-      : _authService = authService,
-        super(key: key);
+  const LoginButton({super.key, required AuthService authService})
+      : _authService = authService;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ElevatedButton(
       style: getButtonStyle(context),
       onPressed: () async {
         try {
           final userCredential = await signIn();
           if (userCredential != null && context.mounted) {
-            onSignInSuccess(context);
+            onSignInSuccess(context, ref);
           }
         } on Exception catch (e) {
           if (!context.mounted) return;
@@ -215,7 +232,10 @@ abstract class LoginButton extends StatelessWidget {
     );
   }
 
-  void onSignInSuccess(BuildContext context) {
+  void onSignInSuccess(BuildContext context, WidgetRef ref) async {
+    // ログアウト状態をリセット
+    await ref.read(authServiceProvider).resetLogoutState();
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) {
@@ -228,31 +248,30 @@ abstract class LoginButton extends StatelessWidget {
     );
   }
 
-  Future<void> showConfirmationDialog(BuildContext context) async {
+  Future<void> showConfirmationDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
-          title: const Text(
-            '注意',
-            textAlign: TextAlign.center,
-          ),
+          title: const Text('確認'),
           content: const Text(
             '大学のアカウント以外でログインしようとしています。一部機能が使えなかったりするけど大丈夫そ？\n\n※ゲストモードだと30日後にアカウントが消えます。',
-            textAlign: TextAlign.center,
           ),
-          actions: <Widget>[
+          actions: [
             TextButton(
-              child: const Text('やっぱやめる'),
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
+              child: const Text('キャンセル'),
             ),
             TextButton(
-              child: const Text('はい大丈夫そ'),
               onPressed: () {
                 Navigator.of(context).pop(true);
               },
+              child: const Text('続ける'),
             ),
           ],
         );
@@ -263,7 +282,7 @@ abstract class LoginButton extends StatelessWidget {
       try {
         final userCredential = await signIn();
         if (userCredential != null && context.mounted) {
-          onSignInSuccess(context);
+          onSignInSuccess(context, ref);
         }
       } on Exception catch (e) {
         if (!context.mounted) return;

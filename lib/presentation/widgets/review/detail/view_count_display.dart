@@ -1,36 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ous/domain/view_count_provider.dart';
+import 'package:ous/domain/view_count_provider.dart' as view_count_provider;
 
 class ViewCountDisplay extends ConsumerWidget {
   final String documentId;
+  final String collectionName;
+  final TextStyle? style;
 
   const ViewCountDisplay({
     super.key,
     required this.documentId,
+    required this.collectionName,
+    this.style,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final viewCountAsync = ref.watch(viewCountProvider(documentId));
+    // 閲覧数を取得 - タプルとして正しく渡す
+    final viewCountAsync = ref.watch(
+      view_count_provider.viewCountProvider((documentId, collectionName)),
+    );
 
-    return viewCountAsync.when(
-      data: (count) => Text(
-        '閲覧数: $count',
-        style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).hintColor,
+    // デバッグ出力
+    print(
+      'ViewCountDisplay: documentId=$documentId, collectionName=$collectionName, '
+      'viewCount=${viewCountAsync.value}, hasError=${viewCountAsync.hasError}, '
+      'isLoading=${viewCountAsync.isLoading}',
+    );
+
+    if (viewCountAsync.hasError) {
+      print('ViewCountDisplay エラー: ${viewCountAsync.error}');
+    }
+
+    return Row(
+      children: [
+        const Icon(Icons.visibility, size: 16, color: Colors.grey),
+        const SizedBox(width: 4),
+        viewCountAsync.when(
+          data: (count) => Text(
+            count == 1 ? '1 view' : '$count views',
+            style: style,
+          ),
+          loading: () =>
+              const Text('...', style: TextStyle(color: Colors.grey)),
+          error: (error, stack) {
+            print('ViewCountDisplay エラー詳細: $error');
+            return const Text('Error', style: TextStyle(color: Colors.grey));
+          },
         ),
-      ),
-      loading: () => const SizedBox(
-        width: 12,
-        height: 12,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-      error: (_, __) => const Text(
-        '閲覧数: -',
-        style: TextStyle(fontSize: 12),
-      ),
+      ],
     );
   }
 }

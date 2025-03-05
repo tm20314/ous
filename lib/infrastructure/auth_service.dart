@@ -1,27 +1,42 @@
-// Flutter imports:
+import 'dart:math';
 
-// Package imports:
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-
-export 'auth_service.dart'; // This will make AuthService from auth_service.dart available
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth;
   final SharedPreferences _prefs;
 
-  AuthService(this._prefs);
+  AuthService(this._prefs) : _auth = FirebaseAuth.instance;
+
+  // 現在のユーザーを取得
+  User? get currentUser => _auth.currentUser;
+
+  // ランダムな文字列を生成する（Apple認証用）
+  String generateNonce() {
+    final random = Random.secure();
+    return List.generate(32, (_) => random.nextInt(16).toRadixString(16))
+        .join();
+  }
+
+  // ユーザーIDを取得（匿名ユーザーも含む）
+  Future<String> getUserId() async {
+    if (_auth.currentUser == null) {
+      // 匿名サインイン
+      await signInAnonymously();
+    }
+    return _auth.currentUser?.uid ?? 'anonymous';
+  }
 
   // 明示的なログイン時に呼び出す
   Future<void> resetLogoutState() async {
     await _prefs.setBool('user_logged_out', false);
   }
 
-// 自動ログイン判定
+  // 自動ログイン判定
   Future<bool> shouldAutoLogin() async {
     // ユーザーが明示的にログアウトした場合は自動ログインしない
     final userLoggedOut = _prefs.getBool('user_logged_out') ?? false;
@@ -35,31 +50,33 @@ class AuthService {
       _updateUserProfile(userCredential.user);
       return userCredential;
     } catch (e) {
+      debugPrint('匿名認証エラー: $e');
       return null;
     }
   }
 
-  // Appleログイン
+  // Appleログイン（最新の方法）
   Future<UserCredential?> signInWithApple() async {
     try {
-      final rawNonce = generateNonce();
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-      if (appleCredential.identityToken == null) {
-        throw Exception('Apple SignIn Aborted');
-      }
-      final oauthCredential = OAuthProvider("apple.com").credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
-      final authResult = await _auth.signInWithCredential(oauthCredential);
-      _updateUserProfile(authResult.user);
-      return authResult;
+      debugPrint('Apple ログイン開始: 新しい方法');
+
+      // AppleAuthProviderを作成
+      final appleProvider = AppleAuthProvider();
+
+      // サインイン処理
+      final userCredential = await _auth.signInWithProvider(appleProvider);
+      debugPrint('Apple ログイン: Firebase 認証完了');
+
+      // ユーザープロファイルの更新
+      _updateUserProfile(userCredential.user);
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Apple ログイン失敗 (FirebaseAuthException): ${e.code} - ${e.message}');
+      return null;
     } catch (e) {
+      debugPrint('Apple ログイン失敗: $e');
       return null;
     }
   }
@@ -79,7 +96,7 @@ class AuthService {
       _updateUserProfile(authResult.user);
       return authResult;
     } catch (e) {
-      debugPrint('Google SignIn Error: $e'); // ログを追加
+      debugPrint('Google SignIn Error: $e');
       return null;
     }
   }
@@ -100,24 +117,20 @@ class AuthService {
 
       if (!userSnapshot.exists) {
         // ユーザーが存在しない場合（初回ログイン）
-        await userRef.set(
-          {
-            'uid': user.uid,
-            'email': user.email ?? '未設定',
-            'displayName': user.displayName ?? '名前未設定',
-            'photoURL': user.photoURL ?? '',
-            'createdAt': DateTime.now(),
-          },
-        );
+        await userRef.set({
+          'uid': user.uid,
+          'email': user.email ?? '未設定',
+          'displayName': user.displayName ?? '名前未設定',
+          'photoURL': user.photoURL ?? '',
+          'createdAt': DateTime.now(),
+        });
       } else {
         // ユーザーが既に存在する場合（2回目以降のログイン）
-        await userRef.update(
-          {
-            'email': user.email ?? '未設定',
-            'displayName': user.displayName ?? '名前未設定',
-            'photoURL': user.photoURL ?? '',
-          },
-        );
+        await userRef.update({
+          'email': user.email ?? '未設定',
+          'displayName': user.displayName ?? '名前未設定',
+          'photoURL': user.photoURL ?? '',
+        });
       }
     }
   }

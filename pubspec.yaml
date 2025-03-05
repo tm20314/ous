@@ -40,7 +40,7 @@ dependencies:
   dio: ^5.7.0
   firebase_remote_config: ^5.4.2
   firebase_analytics: ^11.4.4
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^2.0.0
   cupertino_icons: ^1.0.8
   shimmer: ^3.0.0
   fl_chart: ^0.70.0
@@ -61,6 +61,9 @@ dependencies:
   rotated_corner_decoration: ^2.1.0
   cached_network_image: ^3.4.1
   smooth_page_indicator: ^1.2.1
+  badges: ^3.1.2
+  flutter_hooks: ^0.18.0
+  hooks_riverpod: ^2.0.0
 
 dev_dependencies:
   flutter_test:
@@ -89,7 +92,7 @@ flutter_native_splash:
   image: 'assets/icon/icon.png'
   color_dark: '#202124'
   image_dark: 'assets/icon/icon_dark.png'
-  fullscreen: true
+  fullscreen: false
   android_12:
     icon_background_color: '#ffffff'
     image: 'assets/icon/icon.png'

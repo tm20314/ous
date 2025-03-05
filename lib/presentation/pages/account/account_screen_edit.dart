@@ -1,28 +1,96 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:ous/domain/upload_provider.dart';
 import 'package:ous/domain/user_providers.dart';
 import 'package:ous/gen/assets.gen.dart';
 import 'package:ous/gen/user_data.dart';
 import 'package:ous/infrastructure/user_repository.dart';
 
-class MyPageEdit extends ConsumerWidget {
-  final ImagePicker _picker = ImagePicker();
-  MyPageEdit({super.key});
+class MyPageEdit extends ConsumerStatefulWidget {
+  const MyPageEdit({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  MyPageEditState createState() => MyPageEditState();
+}
+
+class MyPageEditState extends ConsumerState<MyPageEdit> {
+  final nameController = TextEditingController();
+  String? errorMessage;
+  String? successMessage;
+  bool isLoading = false;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    // ゲストユーザーかどうかを確認
+    final isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? true;
+
+    // ゲストの場合はエラー画面を表示
+    if (isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('アカウント情報編集'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                Assets.icon.error.path,
+                width: 150.0,
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'ゲストモードではアカウント情報を編集できません',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('戻る'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final userDataAsyncValue = ref.watch(userStreamProvider);
+
+    // アップロード状態を監視
+    final isUploading = ref.watch(uploadingProvider);
+
+    // アップロード中はローディング表示
+    if (isUploading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('アカウント情報編集')),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('画像をアップロード中...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 通常の画面表示
     return Scaffold(
       appBar: AppBar(
         title: const Text('アカウント情報編集'),
       ),
       body: userDataAsyncValue.when(
         data: (userData) {
-          final nameController =
-              TextEditingController(text: userData?.displayName);
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Center(
@@ -154,6 +222,46 @@ class MyPageEdit extends ConsumerWidget {
     );
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // エラーメッセージがあれば表示
+    if (errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage!)),
+        );
+        setState(() {
+          errorMessage = null;
+        });
+      });
+    }
+
+    // 成功メッセージがあれば表示
+    if (successMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(successMessage!)),
+        );
+        setState(() {
+          successMessage = null;
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 初期化処理
+  }
+
   Future<void> _pickAndCropImage(
     ImageSource source,
     WidgetRef ref,
@@ -187,19 +295,38 @@ class MyPageEdit extends ConsumerWidget {
       );
 
       if (croppedImage != null) {
-        final imageUrl = await ref
-            .read(userRepositoryProvider)
-            .uploadProfileImage(XFile(croppedImage.path));
-        if (imageUrl != null) {
-          await ref.read(userRepositoryProvider).updateUser(
-                userData?.uid ?? '',
-                photoURL: imageUrl,
-              );
-          ref.refresh(userStreamProvider);
+        // アップロード中状態をセット
+        ref.read(uploadingProvider.notifier).state = true;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('プロフィール画像が更新されました。')),
-          );
+        try {
+          final imageUrl = await ref
+              .read(userRepositoryProvider)
+              .uploadProfileImage(XFile(croppedImage.path));
+
+          if (imageUrl != null) {
+            await ref.read(userRepositoryProvider).updateUser(
+                  userData?.uid ?? '',
+                  photoURL: imageUrl,
+                );
+            ref.refresh(userStreamProvider);
+
+            // コンテキストがまだ有効かチェック
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('プロフィール画像が更新されました。')),
+              );
+            }
+          } else {
+            // エラーメッセージをセット
+            ref.read(uploadErrorProvider.notifier).state = '画像のアップロードに失敗しました。';
+          }
+        } catch (e) {
+          // エラーメッセージをセット
+          ref.read(uploadErrorProvider.notifier).state = '画像のアップロードに失敗しました: $e';
+          print('画像アップロードエラー: $e');
+        } finally {
+          // アップロード中状態を解除
+          ref.read(uploadingProvider.notifier).state = false;
         }
       }
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ous/domain/review_user_posts_provider.dart';
+import 'package:ous/gen/assets.gen.dart';
 import 'package:ous/presentation/pages/review/edit_view.dart';
 
 class UserPostsScreen extends ConsumerWidget {
@@ -21,25 +22,15 @@ class UserPostsScreen extends ConsumerWidget {
         child: reviewAsyncValue.when(
           data: (userPosts) {
             if (userPosts.isEmpty) {
-              return const Center(
+              return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 200,
-                      height: 200,
-                      child: Image(
-                        image: AssetImage('assets/icon/found.gif'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    SizedBox(
-                      height: 50,
-                    ),
+                    Assets.icon.found.image(width: 150),
+                    const SizedBox(height: 16),
                     Text(
                       '投稿した講義がありません',
-                      style: TextStyle(fontSize: 18),
-                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Theme.of(context).hintColor),
                     ),
                   ],
                 ),
@@ -50,21 +41,38 @@ class UserPostsScreen extends ConsumerWidget {
               itemCount: userPosts.length,
               itemBuilder: (context, index) {
                 final post = userPosts[index];
-                return ListTile(
-                  title: Text(post.zyugyoumei ?? ''),
-                  subtitle: Text(post.kousimei ?? ''),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditScreen(
-                          review: post,
+                return Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    title: Text(post.zyugyoumei ?? '無題'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(post.kousimei ?? ''),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.star, size: 16, color: Colors.amber),
+                            Text(' ${post.sougouhyouka?.toInt() ?? 0}/5'),
+                          ],
                         ),
-                      ),
-                    );
-                    // 投稿後にデータを再取得
-                    ref.refresh(fetchUserReviews);
-                  },
+                      ],
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditScreen(
+                            review: post,
+                          ),
+                        ),
+                      );
+                      // 投稿後にデータを再取得
+                      ref.refresh(fetchUserReviews);
+                    },
+                  ),
                 );
               },
             );

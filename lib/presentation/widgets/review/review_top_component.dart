@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 // Project imports:
 import 'package:ous/presentation/pages/review/gpa.dart';
+import 'package:ous/presentation/pages/review/liked_posts_page.dart';
 import 'package:ous/presentation/pages/review/my_post_page.dart';
 import 'package:ous/presentation/pages/review/post.dart';
 import 'package:ous/presentation/pages/review/sabori.dart';
@@ -19,11 +20,11 @@ class CustomCard extends StatelessWidget {
   final String collection;
 
   const CustomCard({
-    Key? key,
+    super.key,
     required this.imagePath,
     required this.title,
     required this.collection,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -118,24 +119,8 @@ class CustomCard extends StatelessWidget {
   }
 }
 
-class TransparentCard extends StatelessWidget {
-  const TransparentCard({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 170.h,
-      width: 170.w,
-      child: const Card(
-        color: Colors.transparent,
-        elevation: 0,
-      ),
-    );
-  }
-}
-
 class FloatingButton extends StatelessWidget {
-  const FloatingButton({Key? key}) : super(key: key);
+  const FloatingButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +232,35 @@ class FloatingButton extends StatelessWidget {
             );
           },
         ),
+        SpeedDialChild(
+          child: const Icon(Icons.favorite_outline),
+          label: "いいねした投稿",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LikedPostsScreen(),
+              ),
+            );
+          },
+        ),
       ],
+    );
+  }
+}
+
+class TransparentCard extends StatelessWidget {
+  const TransparentCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 170.h,
+      width: 170.w,
+      child: const Card(
+        color: Colors.transparent,
+        elevation: 0,
+      ),
     );
   }
 }

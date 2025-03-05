@@ -4,62 +4,85 @@
 import 'package:flutter/material.dart';
 // Package imports:
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// Project imports:
-import 'package:ous/domain/share_preferences_instance.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-final themeProvider = StateNotifierProvider<ThemeNotifier, AppTheme>(
-  (ref) => ThemeNotifier(),
-);
+// テーマプロバイダー
+final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeState>((ref) {
+  // ここでエラーが発生する可能性がある
+  // SharedPreferencesは非同期で初期化する必要があるが、
+  // StateNotifierProviderは同期的に値を返す必要がある
+  throw UnimplementedError('main.dartでoverrideする必要があります');
+});
 
-class AppTheme {
-  final ThemeMode mode;
-  final MaterialColor primarySwatch;
+// テーマの状態を管理するNotifierクラス
+class ThemeNotifier extends StateNotifier<ThemeState> {
+  final SharedPreferences _prefs;
 
-  AppTheme({required this.mode, required this.primarySwatch});
-}
-
-class ThemeNotifier extends StateNotifier<AppTheme> {
-  static const String keyThemeMode = 'theme_mode';
-  static const String keyPrimarySwatch = 'primary_swatch';
-  final _prefs = SharedPreferencesInstance().prefs;
-
-  ThemeNotifier()
+  ThemeNotifier(this._prefs)
       : super(
-          AppTheme(
+          ThemeState(
             mode: ThemeMode.system,
             primarySwatch: Colors.lightGreen,
           ),
         ) {
-    final themeMode = _loadThemeMode() ?? ThemeMode.system;
-    final primarySwatch = _loadPrimarySwatch() ?? Colors.lightGreen;
-    state = AppTheme(mode: themeMode, primarySwatch: primarySwatch);
+    // 初期化時に保存されたテーマを読み込む
+    _loadTheme();
   }
 
-  Future<void> updateTheme(AppTheme theme) async {
-    await _saveThemeMode(theme.mode);
-    await _savePrimarySwatch(theme.primarySwatch);
-    state = theme;
+  // プライマリカラーを設定する
+  void setPrimaryColor(Color color) {
+    _prefs.setInt('primary_color', color.value);
+    state = state.copyWith(primarySwatch: color);
   }
 
-  MaterialColor? _loadPrimarySwatch() {
-    final loaded = _prefs.getInt(keyPrimarySwatch);
-    if (loaded == null) {
-      return null;
+  // テーマモードを設定する
+  void setThemeMode(ThemeMode mode) {
+    _prefs.setString('theme_mode', mode.toString());
+    state = state.copyWith(mode: mode);
+  }
+
+  // 文字列からThemeModeを取得する
+  ThemeMode _getThemeMode(String? mode) {
+    switch (mode) {
+      case 'ThemeMode.light':
+        return ThemeMode.light;
+      case 'ThemeMode.dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
     }
-    return Colors.primaries[loaded];
   }
 
-  ThemeMode? _loadThemeMode() {
-    final loaded = _prefs.getString(keyThemeMode);
-    if (loaded == null) {
-      return null;
-    }
-    return ThemeMode.values.byName(loaded);
+  // テーマを読み込む
+  void _loadTheme() {
+    final savedMode = _prefs.getString('theme_mode');
+    final savedColor = _prefs.getInt('primary_color');
+
+    state = ThemeState(
+      mode: _getThemeMode(savedMode),
+      primarySwatch: savedColor != null ? Color(savedColor) : Colors.lightGreen,
+    );
   }
+}
 
-  Future<bool> _savePrimarySwatch(MaterialColor primarySwatch) =>
-      _prefs.setInt(keyPrimarySwatch, Colors.primaries.indexOf(primarySwatch));
+// テーマの状態を保持するクラス
+class ThemeState {
+  final ThemeMode mode;
+  final Color primarySwatch;
 
-  Future<bool> _saveThemeMode(ThemeMode themeMode) =>
-      _prefs.setString(keyThemeMode, themeMode.name);
+  ThemeState({
+    required this.mode,
+    required this.primarySwatch,
+  });
+
+  // コピーメソッド
+  ThemeState copyWith({
+    ThemeMode? mode,
+    Color? primarySwatch,
+  }) {
+    return ThemeState(
+      mode: mode ?? this.mode,
+      primarySwatch: primarySwatch ?? this.primarySwatch,
+    );
+  }
 }

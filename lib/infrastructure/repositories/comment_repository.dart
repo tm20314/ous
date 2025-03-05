@@ -42,12 +42,8 @@ class CommentRepository {
       isApproved: true,
     );
 
-    // コメントを追加
-    await _firestore
-        .collection(collectionName)
-        .doc(reviewId)
-        .collection('comments')
-        .add(comment.toJson());
+    // 独立したcommentsコレクションにコメントを追加
+    await _firestore.collection('comments').add(comment.toJson());
   }
 
   // コメントを削除
@@ -96,40 +92,43 @@ class CommentRepository {
       throw Exception('ログインが必要です');
     }
 
-    final likeRef = _firestore
-        .collection('comments')
-        .doc(commentId)
-        .collection('likes')
-        .doc(user.uid);
+    final commentRef = _firestore.collection('comments').doc(commentId);
+    final likeRef = commentRef.collection('likes').doc(user.uid);
 
+    // 現在の状態を確認
     final likeDoc = await likeRef.get();
+    final commentDoc = await commentRef.get();
 
-    await _firestore.runTransaction((transaction) async {
-      final commentDoc = await transaction
-          .get(_firestore.collection('comments').doc(commentId));
+    if (!commentDoc.exists) {
+      throw Exception('コメントが見つかりません');
+    }
 
-      if (!commentDoc.exists) {
-        throw Exception('コメントが見つかりません');
-      }
+    final currentLikes = commentDoc.data()!['likes'] as int;
+    final hasLiked = likeDoc.exists;
 
-      final currentLikes = commentDoc.data()!['likes'] as int;
+    print(
+      'いいねトグル前: commentId=$commentId, userId=${user.uid}, hasLiked=$hasLiked, currentLikes=$currentLikes',
+    );
 
-      if (likeDoc.exists) {
+    // トランザクションを使わずに直接更新
+    try {
+      if (hasLiked) {
         // いいねを削除
-        transaction.delete(likeRef);
-        transaction.update(
-          _firestore.collection('comments').doc(commentId),
-          {'likes': currentLikes - 1},
-        );
+        await likeRef.delete();
+        await commentRef.update({'likes': FieldValue.increment(-1)});
+        print('いいねを削除: $commentId, 現在のいいね数: ${currentLikes - 1}');
       } else {
         // いいねを追加
-        transaction.set(likeRef, {'createdAt': Timestamp.now()});
-        transaction.update(
-          _firestore.collection('comments').doc(commentId),
-          {'likes': currentLikes + 1},
-        );
+        await likeRef.set({'createdAt': Timestamp.now()});
+        await commentRef.update({'likes': FieldValue.increment(1)});
+        print('いいねを追加: $commentId, 現在のいいね数: ${currentLikes + 1}');
       }
-    });
+      print('いいねトグル完了: $commentId, 新しい状態: ${!hasLiked}');
+      return;
+    } catch (error) {
+      print('いいねトグルエラー: $error');
+      rethrow;
+    }
   }
 
   // コメントを編集

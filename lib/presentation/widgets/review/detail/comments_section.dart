@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:ous/domain/comment_provider.dart';
+import 'package:ous/domain/comment_provider.dart' as comment_provider;
 import 'package:ous/domain/models/comment.dart';
-import 'package:ous/domain/user_provider.dart';
+import 'package:ous/domain/user_provider.dart' as user_provider;
 import 'package:ous/presentation/pages/account/account_screen_edit.dart';
 
 // コメントの編集・削除メニュー
@@ -63,7 +63,8 @@ class CommentActions extends ConsumerWidget {
 
     if (result == true) {
       try {
-        await ref.read(deleteCommentProvider(comment.id).future);
+        await ref
+            .read(comment_provider.deleteCommentProvider(comment.id).future);
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +107,7 @@ class CommentActions extends ConsumerWidget {
     if (result != null && result.trim().isNotEmpty) {
       try {
         await ref.read(
-          updateCommentProvider(
+          comment_provider.updateCommentProvider(
             (commentId: comment.id, content: result.trim()),
           ).future,
         );
@@ -150,7 +151,7 @@ class CommentItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ユーザー情報を取得するプロバイダーを使用
-    final userAsync = ref.watch(userProvider(comment.userId));
+    final userAsync = ref.watch(user_provider.userProvider(comment.userId));
     final currentUser = FirebaseAuth.instance.currentUser;
     final isOwner = currentUser?.uid == comment.userId;
 
@@ -158,6 +159,11 @@ class CommentItem extends ConsumerWidget {
     final formattedDate = DateFormat('yyyy/MM/dd HH:mm').format(
       comment.createdAt.toDate(),
     );
+
+    // いいね数を監視
+    final likesCountAsync =
+        ref.watch(comment_provider.commentLikesCountProvider(comment.id));
+    final likesCount = likesCountAsync.value ?? comment.likes;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -263,7 +269,11 @@ class CommentItem extends ConsumerWidget {
                 Row(
                   children: [
                     // いいねボタン
-                    LikeButton(commentId: comment.id, likes: comment.likes),
+                    LikeButton(
+                      commentId: comment.id,
+                      likes:
+                          likesCount is int ? likesCount : 0, // Object型をint型に変換
+                    ),
 
                     const Spacer(),
 
@@ -308,28 +318,72 @@ class LikeButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasLiked = ref.watch(hasLikedCommentProvider(commentId));
+    // いいね状態を監視
+    final hasLikedAsync =
+        ref.watch(comment_provider.commentLikeStatusProvider(commentId));
+
+    // いいね数を状態として管理
+    final likesCountAsync =
+        ref.watch(comment_provider.commentLikesCountProvider(commentId));
+
+    // AsyncValueから実際の値を取得
+    final likesCount = likesCountAsync.value ?? likes;
+
+    // デバッグ出力
+    print(
+      'LikeButton build: commentId=$commentId, hasLiked=${hasLikedAsync.value}, likesCount=$likesCount',
+    );
 
     return Row(
       children: [
         IconButton(
           icon: Icon(
-            hasLiked.value ?? false ? Icons.thumb_up : Icons.thumb_up_outlined,
-            size: 18,
+            hasLikedAsync.value == true
+                ? Icons.thumb_up
+                : Icons.thumb_up_outlined,
+            color: hasLikedAsync.value == true ? Colors.blue : Colors.grey,
+            size: 20,
           ),
-          onPressed: () async {
-            // いいねトグル後にプロバイダーを明示的に更新
-            await ref.read(toggleLikeProvider(commentId).future);
-            // キャッシュを無効化して再取得を強制
-            ref.invalidate(hasLikedCommentProvider(commentId));
-          },
+          onPressed: hasLikedAsync.isLoading
+              ? null // ロード中は無効化
+              : () async {
+                  print(
+                    'いいねボタンが押されました: $commentId, 現在の状態: ${hasLikedAsync.value}',
+                  );
+
+                  try {
+                    // いいねトグル
+                    await ref.read(
+                      comment_provider.toggleLikeProvider(commentId).future,
+                    );
+
+                    // すべての関連プロバイダーを無効化
+                    ref.invalidate(
+                      comment_provider.commentLikeStatusProvider(commentId),
+                    );
+                    ref.invalidate(
+                      comment_provider.commentLikesCountProvider(commentId),
+                    );
+                    ref.invalidate(
+                      comment_provider.commentsProvider,
+                    );
+
+                    print('いいねトグル完了: $commentId');
+                  } catch (e) {
+                    print('いいねトグルエラー: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('いいねの処理に失敗しました: $e')),
+                      );
+                    }
+                  }
+                },
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          splashRadius: 18,
+          tooltip: 'いいね！',
         ),
         const SizedBox(width: 4),
         Text(
-          likes.toString(),
+          likesCount.toString(),
           style: TextStyle(
             color: Colors.grey.shade700,
             fontSize: 14,
@@ -351,7 +405,8 @@ class _CommentInputFormState extends ConsumerState<CommentInputForm> {
     final user = FirebaseAuth.instance.currentUser;
     final isAnonymous = user?.isAnonymous ?? true;
     final isLoggedIn = user != null && !isAnonymous;
-    final userAsync = isLoggedIn ? ref.watch(userProvider(user.uid)) : null;
+    final userAsync =
+        isLoggedIn ? ref.watch(user_provider.userProvider(user.uid)) : null;
 
     // ゲストユーザーの場合はログインを促すメッセージを表示
     if (!isLoggedIn) {
@@ -599,7 +654,7 @@ class _CommentInputFormState extends ConsumerState<CommentInputForm> {
 
     try {
       await ref.read(
-        addCommentProvider(
+        comment_provider.addCommentProvider(
           (
             reviewId: widget.reviewId,
             collectionName: widget.collectionName,
@@ -628,9 +683,11 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
 
   @override
   Widget build(BuildContext context) {
-    final commentsAsync = ref.watch(commentsProvider(widget.reviewId));
-    final sortedComments = ref.watch(sortedCommentsProvider(widget.reviewId));
-    final sortOrder = ref.watch(commentSortOrderProvider);
+    final commentsAsync =
+        ref.watch(comment_provider.commentsProvider(widget.reviewId));
+    final sortedComments =
+        ref.watch(comment_provider.sortedCommentsProvider(widget.reviewId));
+    final sortOrder = ref.watch(comment_provider.commentSortOrderProvider);
     final commentCount = commentsAsync.value?.length ?? 0;
 
     return Column(
@@ -660,27 +717,30 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
               const Spacer(),
               // 並べ替えドロップダウン
               if (commentCount > 1)
-                DropdownButton<CommentSortOrder>(
+                DropdownButton<comment_provider.CommentSortOrder>(
                   value: sortOrder,
                   underline: const SizedBox(),
                   icon: const Icon(Icons.sort),
-                  onChanged: (CommentSortOrder? newValue) {
+                  onChanged: (comment_provider.CommentSortOrder? newValue) {
                     if (newValue != null) {
-                      ref.read(commentSortOrderProvider.notifier).state =
-                          newValue;
+                      ref
+                          .read(
+                            comment_provider.commentSortOrderProvider.notifier,
+                          )
+                          .state = newValue;
                     }
                   },
                   items: [
                     DropdownMenuItem(
-                      value: CommentSortOrder.newest,
+                      value: comment_provider.CommentSortOrder.newest,
                       child: const Text('新しい順'),
                     ),
                     DropdownMenuItem(
-                      value: CommentSortOrder.oldest,
+                      value: comment_provider.CommentSortOrder.oldest,
                       child: const Text('古い順'),
                     ),
                     DropdownMenuItem(
-                      value: CommentSortOrder.mostLiked,
+                      value: comment_provider.CommentSortOrder.mostLiked,
                       child: const Text('人気順'),
                     ),
                   ],
@@ -788,8 +848,9 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                     const SizedBox(height: 16),
                     Text('エラーが発生しました: $error'),
                     TextButton(
-                      onPressed: () =>
-                          ref.refresh(commentsProvider(widget.reviewId)),
+                      onPressed: () => ref.refresh(
+                        comment_provider.commentsProvider(widget.reviewId),
+                      ),
                       child: const Text('再読み込み'),
                     ),
                   ],
