@@ -6,7 +6,7 @@ import 'package:ous/presentation/widgets/review/detail/share_gauge_section.dart'
 
 class ModalWidget extends StatefulWidget {
   final Review review;
-  const ModalWidget({Key? key, required this.review}) : super(key: key);
+  const ModalWidget({super.key, required this.review});
 
   @override
   ModalWidgetState createState() => ModalWidgetState();
@@ -92,9 +92,20 @@ class ModalWidgetState extends State<ModalWidget> {
                       icon: const FaIcon(FontAwesomeIcons.twitter),
                       padding: const EdgeInsets.all(20),
                       onPressed: () =>
-                          ShareService.shareReview(widget.review, globalKey),
+                          ShareService.shareToTwitter(widget.review, globalKey),
                     ),
                     const Text('Twitter(X)'),
+                  ],
+                ),
+                Column(
+                  children: [
+                    IconButton.filledTonal(
+                      icon: const FaIcon(FontAwesomeIcons.instagram),
+                      padding: const EdgeInsets.all(20),
+                      onPressed: () => ShareService.shareToInstagram(
+                          widget.review, globalKey),
+                    ),
+                    const Text('Instagram'),
                   ],
                 ),
                 Column(
@@ -105,7 +116,7 @@ class ModalWidgetState extends State<ModalWidget> {
                       onPressed: () =>
                           ShareService.shareReview(widget.review, globalKey),
                     ),
-                    const Text('シェア'),
+                    const Text('その他'),
                   ],
                 ),
               ],

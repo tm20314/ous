@@ -19,9 +19,9 @@ import 'package:ous/presentation/widgets/review/detail/date_section.dart';
 import 'package:ous/presentation/widgets/review/detail/gauge_section.dart';
 import 'package:ous/presentation/widgets/review/detail/modal_widget.dart';
 import 'package:ous/presentation/widgets/review/detail/outdated_post_info.dart';
-import 'package:ous/presentation/widgets/review/detail/report_button.dart';
 import 'package:ous/presentation/widgets/review/detail/text_section.dart';
 import 'package:ous/presentation/widgets/review/detail/view_count_display.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DetailScreen extends ConsumerStatefulWidget {
   final Review review;
@@ -75,26 +75,12 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.bug_report),
+            icon: const Icon(Icons.report_problem_outlined),
+            tooltip: 'この投稿を報告',
             onPressed: () async {
-              // 現在使用しているIDを表示
-              print('デバッグ情報:');
-              print('documentId: ${widget.documentId}');
-              print('review.ID: ${widget.review.ID}');
-
-              // いいね状態を確認
-              final repository = ref.read(likeRepositoryProvider);
-              final hasLiked = await repository.hasUserLiked(widget.documentId);
-              print('いいね状態: $hasLiked');
-
-              // Firestoreのパスを確認
-              final path = '/${widget.collectionName}/${widget.documentId}';
-              print('Firestoreパス: $path');
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('デバッグ情報をコンソールに出力しました'),
-                  duration: const Duration(seconds: 2),
+              launchUrl(
+                Uri.parse(
+                  'https://docs.google.com/forms/d/e/1FAIpQLSepC82BWAoARJVh4WeGCFOuIpWLyaPfqqXn524SqxyBSA9LwQ/viewform',
                 ),
               );
             },
@@ -321,8 +307,6 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         _buildPostInfoSection(review),
 
         const SizedBox(height: 20.0),
-        const Center(child: ReportButton()),
-        const SizedBox(height: 20.0),
 
         // コメントセクションを追加
         _buildCommentsSection(),
@@ -491,7 +475,6 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 ],
               ),
               _buildPostInfoSection(review),
-              const Center(child: ReportButton()),
             ],
           ),
         ),
