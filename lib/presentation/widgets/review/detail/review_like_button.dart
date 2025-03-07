@@ -28,7 +28,7 @@ class ReviewLikeButton extends ConsumerWidget {
               hasLiked ? Icons.favorite : Icons.favorite_border,
               color: hasLiked ? Colors.red : Colors.grey,
             ),
-            onPressed: () {
+            onPressed: () async {
               if (hasLiked) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -36,7 +36,11 @@ class ReviewLikeButton extends ConsumerWidget {
                     duration: Duration(seconds: 1),
                   ),
                 );
-                ref.read(removeLikeProvider(reviewId));
+                await ref.read(likeRepositoryProvider).removeLike(reviewId);
+
+                // キャッシュを更新して UI を再描画
+                ref.invalidate(hasUserLikedProvider(reviewId));
+                ref.invalidate(likeCountProvider(reviewId));
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -44,7 +48,15 @@ class ReviewLikeButton extends ConsumerWidget {
                     duration: Duration(seconds: 1),
                   ),
                 );
-                ref.read(addLikeProvider((reviewId, collectionName, review)));
+                await ref.read(likeRepositoryProvider).addLike(
+                      reviewId,
+                      collectionName,
+                      review,
+                    );
+
+                // キャッシュを更新して UI を再描画
+                ref.invalidate(hasUserLikedProvider(reviewId));
+                ref.invalidate(likeCountProvider(reviewId));
               }
             },
           ),
@@ -55,8 +67,18 @@ class ReviewLikeButton extends ConsumerWidget {
           ),
           error: (_, __) => IconButton(
             icon: const Icon(Icons.favorite_border, color: Colors.grey),
-            onPressed: () {
+            onPressed: () async {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('いいねしました'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
               ref.read(addLikeProvider((reviewId, collectionName, review)));
+
+              // キャッシュを更新して UI を再描画
+              ref.invalidate(hasUserLikedProvider(reviewId));
+              ref.invalidate(likeCountProvider(reviewId));
             },
           ),
         ),

@@ -41,6 +41,8 @@ class Comment with _$Comment {
 
   const Comment._();
 
+  int get likesCount => likes;
+
   @override
   Map<String, dynamic> toJson() {
     return {

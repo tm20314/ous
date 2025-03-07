@@ -16,13 +16,19 @@ class DrawerUserHeader extends ConsumerWidget {
     // ゲストユーザーかどうかを確認
     final isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? true;
 
+    // キャッシュを無視して最新のデータを取得するために invalidate を追加
     final userDataAsyncValue = ref.watch(userStreamProvider);
+
     return userDataAsyncValue.when(
       data: (userData) => _UserAccountsDrawerHeader(
         displayName: isGuest ? 'ゲスト' : (userData?.displayName ?? 'ゲスト'),
         email: isGuest ? 'ゲストユーザー' : (userData?.email ?? 'guest@example.com'),
         photoUrl: userData?.photoURL,
-        onTap: () => _navigateToAccountScreen(context),
+        onTap: () {
+          // 最新のユーザーデータを取得してからアカウント画面に遷移
+          ref.invalidate(userStreamProvider);
+          _navigateToAccountScreen(context);
+        },
         isGuest: isGuest,
       ),
       loading: () => const _LoadingView(),

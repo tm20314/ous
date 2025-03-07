@@ -16,7 +16,7 @@ class ViewCountDisplay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 閲覧数を取得 - タプルとして正しく渡す
+    // 閲覧数を取得
     final viewCountAsync = ref.watch(
       view_count_provider.viewCountProvider((documentId, collectionName)),
     );
@@ -46,6 +46,24 @@ class ViewCountDisplay extends ConsumerWidget {
           error: (error, stack) {
             print('ViewCountDisplay エラー詳細: $error');
             return const Text('Error', style: TextStyle(color: Colors.grey));
+          },
+        ),
+        // 更新ボタンを追加
+        IconButton(
+          icon: const Icon(Icons.refresh, size: 14, color: Colors.grey),
+          onPressed: () {
+            // 閲覧数を更新
+            ref.invalidate(
+              view_count_provider
+                  .viewCountProvider((documentId, collectionName)),
+            );
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('閲覧数を更新しました'),
+                duration: Duration(seconds: 1),
+              ),
+            );
           },
         ),
       ],

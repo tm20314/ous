@@ -92,30 +92,33 @@ final deleteCommentProvider = FutureProvider.family<void, String>(
   },
 );
 
-// 並び順を考慮したコメント取得プロバイダー
+// ソート済みコメントプロバイダー
 final sortedCommentsProvider =
-    Provider.family<List<Comment>?, String>((ref, reviewId) {
-  final commentsAsync = ref.watch(commentsProvider(reviewId));
-  final sortOrder = ref.watch(commentSortOrderProvider);
+    Provider.family<AsyncValue<List<Comment>>, String>(
+  (ref, reviewId) {
+    final commentsAsync = ref.watch(commentsProvider(reviewId));
+    final sortOrder = ref.watch(commentSortOrderProvider);
 
-  if (commentsAsync.value == null) return null;
+    return commentsAsync.whenData((comments) {
+      final sortedComments = List<Comment>.from(comments);
 
-  final comments = List<Comment>.from(commentsAsync.value!);
+      // ソート順に応じてコメントをソート
+      switch (sortOrder) {
+        case CommentSortOrder.newest:
+          sortedComments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          break;
+        case CommentSortOrder.oldest:
+          sortedComments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          break;
+        case CommentSortOrder.mostLiked:
+          sortedComments.sort((a, b) => b.likesCount.compareTo(a.likesCount));
+          break;
+      }
 
-  switch (sortOrder) {
-    case CommentSortOrder.newest:
-      comments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      break;
-    case CommentSortOrder.oldest:
-      comments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      break;
-    case CommentSortOrder.mostLiked:
-      comments.sort((a, b) => b.likes.compareTo(a.likes));
-      break;
-  }
-
-  return comments;
-});
+      return sortedComments;
+    });
+  },
+);
 
 // いいね切り替え用のプロバイダー
 final toggleLikeProvider = FutureProvider.family<void, String>(

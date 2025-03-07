@@ -1,5 +1,7 @@
 // Dart imports:
 // Flutter imports:
+import 'dart:async';
+
 import 'package:badges/badges.dart' as badges;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,7 +13,6 @@ import 'package:ous/domain/review_provider.dart' as review_provider;
 import 'package:ous/domain/view_count_provider.dart' as view_count_provider;
 // Project imports:
 import 'package:ous/gen/review_data.dart';
-import 'package:ous/infrastructure/repositories/review_repository.dart';
 import 'package:ous/infrastructure/repositories/view_count_repository.dart';
 import 'package:ous/presentation/widgets/review/detail/comments_section.dart';
 import 'package:ous/presentation/widgets/review/detail/date_section.dart';
@@ -40,6 +41,7 @@ class DetailScreen extends ConsumerStatefulWidget {
 
 class _DetailScreenState extends ConsumerState<DetailScreen> {
   final ViewCountRepository _viewCountRepository = ViewCountRepository();
+  Timer? _refreshTimer;
 
   @override
   Widget build(BuildContext context) {
@@ -56,9 +58,6 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         !user.isAnonymous &&
         user.email != null &&
         user.email!.endsWith('@ous.jp');
-
-    // ゲストユーザーかどうかを確認
-    final isGuest = user == null || user.isAnonymous;
 
     return Scaffold(
       appBar: AppBar(
@@ -141,6 +140,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     await ref
                         .read(likeRepositoryProvider)
                         .removeLike(widget.documentId);
+
+                    // キャッシュを更新して UI を再描画
+                    ref.invalidate(hasUserLikedProvider(widget.documentId));
+                    ref.invalidate(likeCountProvider(widget.documentId));
                   } else {
                     // いいねを追加
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -150,9 +153,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       ),
                     );
                     await ref.read(likeRepositoryProvider).addLike(
-                        widget.documentId,
-                        widget.collectionName,
-                        widget.review);
+                          widget.documentId,
+                          widget.collectionName,
+                          widget.review,
+                        );
+
+                    // キャッシュを更新して UI を再描画
+                    ref.invalidate(hasUserLikedProvider(widget.documentId));
+                    ref.invalidate(likeCountProvider(widget.documentId));
                   }
                 },
                 child: hasLikedAsync.when(
@@ -177,6 +185,23 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
             view_count_provider
                 .viewCountProvider((widget.documentId, widget.collectionName)),
           );
+
+          // いいね関連のプロバイダーも無効化
+          ref.invalidate(hasUserLikedProvider(widget.documentId));
+          ref.invalidate(likeCountProvider(widget.documentId));
+
+          // 少し待機して確実にデータが更新されるようにする
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          // 更新完了メッセージを表示
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('データを更新しました'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -201,6 +226,13 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   }
 
   @override
+  void dispose() {
+    // タイマーを解放
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
 
@@ -208,39 +240,24 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _refreshData();
 
-      // レビュー情報を出力
-      print(
-        'レビュー情報: ID=${widget.review.ID}, ドキュメントID=${widget.documentId}, コレクション=${widget.collectionName}',
-      );
-
       // 閲覧数を更新
       _incrementViewCount();
 
-      // デバッグ用：閲覧数データを確認
-      Future.delayed(const Duration(seconds: 2), () async {
-        await _checkViewCountData();
-
-        // 内部IDから実際のドキュメントIDを取得して確認
-        final reviewRepository = ReviewRepository();
-        final actualDocId = await reviewRepository
-            .getDocumentIdByInternalId(widget.review.ID ?? '');
-        if (actualDocId != null) {
-          print('内部ID ${widget.review.ID} の実際のドキュメントID: $actualDocId');
-
-          // 実際のドキュメントIDでも閲覧数を確認
-          final doc = await FirebaseFirestore.instance
-              .collection('viewCounts')
-              .doc(actualDocId)
-              .get();
-
-          if (doc.exists) {
-            print('実際のドキュメントIDでの閲覧数データ確認: ${doc.data()}');
-          } else {
-            print('実際のドキュメントIDでの閲覧数データが存在しません: viewCounts/$actualDocId');
-          }
+      // 自動更新タイマーを設定（60秒ごとに更新）
+      _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+        if (mounted) {
+          _refreshData();
         }
       });
     });
+  }
+
+  // CommentsSection ウィジェットを追加する部分
+  Widget _buildCommentsSection() {
+    return CommentsSection(
+      reviewId: widget.documentId,
+      collectionName: 'comments',
+    );
   }
 
   // 通常画面用のレイアウト
@@ -308,10 +325,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         const SizedBox(height: 20.0),
 
         // コメントセクションを追加
-        CommentsSection(
-          reviewId: widget.documentId,
-          collectionName: widget.collectionName,
-        ),
+        _buildCommentsSection(),
       ],
     );
   }
@@ -534,5 +548,15 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       view_count_provider
           .viewCountProvider((widget.documentId, widget.collectionName)),
     );
+
+    // いいね関連のプロバイダーも無効化
+    ref.invalidate(hasUserLikedProvider(widget.documentId));
+    ref.invalidate(likeCountProvider(widget.documentId));
+
+    // ユーザーのいいね一覧も更新
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && !user.isAnonymous) {
+      ref.invalidate(userLikesProvider(user.uid));
+    }
   }
 }

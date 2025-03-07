@@ -19,6 +19,15 @@ final hasLikedCommentProvider =
       .map((snapshot) => snapshot.exists);
 });
 
+// 学内ユーザーかどうかを判定するプロバイダー
+final isOusUserProvider = Provider<bool>((ref) {
+  final user = FirebaseAuth.instance.currentUser;
+  return user != null &&
+      !user.isAnonymous &&
+      user.email != null &&
+      user.email!.endsWith('@ous.jp');
+});
+
 // ユーザー情報を取得するプロバイダー
 final userProvider =
     FutureProvider.family<UserProfile?, String>((ref, userId) async {

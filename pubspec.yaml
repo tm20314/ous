@@ -62,7 +62,7 @@ dependencies:
   cached_network_image: ^3.4.1
   smooth_page_indicator: ^1.2.1
   badges: ^3.1.2
-  flutter_hooks: ^0.18.0
+  flutter_hooks: ^0.21.2
   hooks_riverpod: ^2.0.0
 
 dev_dependencies:

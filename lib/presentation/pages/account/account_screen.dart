@@ -2,16 +2,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-// Package imports:
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 // Project imports:
 import 'package:ous/domain/user_providers.dart';
 import 'package:ous/gen/assets.gen.dart';
-import 'package:ous/main.dart';
 import 'package:ous/presentation/pages/account/account_screen_edit.dart';
-import 'package:ous/presentation/pages/account/login_screen.dart';
 import 'package:ous/presentation/widgets/acount/custom_appbar.dart';
 
 String getUserRole(String? email) {
@@ -21,11 +18,16 @@ String getUserRole(String? email) {
   return '外部';
 }
 
-class AccountScreen extends ConsumerWidget {
+class AccountScreen extends HookConsumerWidget {
   const AccountScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 最初のレンダリング時にのみ実行
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(userStreamProvider);
+    });
+
     final userDataAsyncValue = ref.watch(userStreamProvider);
     return userDataAsyncValue.when(
       data: (userData) {
@@ -199,23 +201,6 @@ class AccountScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                          ),
-                          ElevatedButton(
-                            onPressed: () async {
-                              // ログアウト処理
-                              await ref.read(authServiceProvider).signOut();
-
-                              // ログイン画面に遷移
-                              if (context.mounted) {
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                    builder: (_) => const Login(),
-                                  ),
-                                  (route) => false,
-                                );
-                              }
-                            },
-                            child: const Text('ログアウト'),
                           ),
                         ],
                       ),

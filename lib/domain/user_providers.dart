@@ -8,12 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ous/gen/user_data.dart';
 
 final userStreamProvider = StreamProvider<UserData?>((ref) {
-  return FirebaseAuth.instance.authStateChanges().asyncMap((user) async {
+  return FirebaseAuth.instance.userChanges().asyncMap((user) async {
     if (user == null) {
       return null;
     }
-
-    await Future.delayed(const Duration(seconds: 2)); // Add a 2-second delay
 
     final snapshot = await FirebaseFirestore.instance
         .collection('users')

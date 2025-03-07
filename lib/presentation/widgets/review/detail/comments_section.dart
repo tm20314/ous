@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:ous/domain/comment_provider.dart' as comment_provider;
 import 'package:ous/domain/models/comment.dart';
 import 'package:ous/domain/user_provider.dart' as user_provider;
@@ -150,147 +149,115 @@ class CommentItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ユーザー情報を取得するプロバイダーを使用
-    final userAsync = ref.watch(user_provider.userProvider(comment.userId));
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final isOwner = currentUser?.uid == comment.userId;
+    // ユーザー情報を取得
+    final user = FirebaseAuth.instance.currentUser;
 
-    // 日付フォーマット
-    final formattedDate = DateFormat('yyyy/MM/dd HH:mm').format(
-      comment.createdAt.toDate(),
+    // 自分のコメントかどうか
+    final isOwner = user != null && comment.userId == user.uid;
+
+    // いいね数を取得
+    final likesCountAsync = ref.watch(
+      comment_provider.commentLikesCountProvider(comment.id),
     );
+    final likesCount = likesCountAsync.value ?? comment.likesCount;
 
-    // いいね数を監視
-    final likesCountAsync =
-        ref.watch(comment_provider.commentLikesCountProvider(comment.id));
-    final likesCount = likesCountAsync.value ?? comment.likes;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ユーザーアバター
-          userAsync.when(
-                data: (user) => CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.grey.shade200,
-                  backgroundImage: user?.photoURL != null
-                      ? NetworkImage(user!.photoURL!)
-                      : null,
-                  child: user?.photoURL == null
-                      ? Icon(Icons.person, color: Colors.grey.shade700)
-                      : null,
-                ),
-                loading: () => const CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.grey,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                error: (_, __) => CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.grey.shade300,
-                  child: Icon(Icons.person, color: Colors.grey.shade700),
-                ),
-              ) ??
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.grey.shade300,
-                child: Icon(Icons.person, color: Colors.grey.shade700),
-              ),
-
-          const SizedBox(width: 12),
-
-          // コメント内容
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ユーザー情報
+            Row(
               children: [
-                // ユーザー名と日付
-                Row(
-                  children: [
-                    // ユーザー名
-                    userAsync.when(
-                      data: (user) => Text(
-                        user?.displayName ?? comment.userName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      loading: () => const Text('読み込み中...'),
-                      error: (_, __) => Text(
-                        comment.userName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
+                // ユーザー名
+                Text(
+                  comment.userName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
 
-                    const SizedBox(width: 8),
+                const SizedBox(width: 8),
 
-                    // 投稿日時
-                    Text(
-                      formattedDate,
+                // 投稿日時
+                Text(
+                  _formatDate(comment.createdAt),
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+
+                // 編集済みマーク
+                if (comment.isEdited)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      '(編集済み)',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
-
-                    // 編集済みマーク
-                    if (comment.isEdited)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Text(
-                          '(編集済み)',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: 4),
-
-                // コメント本文
-                Text(
-                  comment.content,
-                  style: const TextStyle(fontSize: 15),
-                ),
-
-                const SizedBox(height: 8),
-
-                // いいねボタンとカウント
-                Row(
-                  children: [
-                    // いいねボタン
-                    LikeButton(
-                      commentId: comment.id,
-                      likes:
-                          likesCount is int ? likesCount : 0, // Object型をint型に変換
-                    ),
-
-                    const Spacer(),
-
-                    // 自分のコメントの場合は編集・削除メニュー
-                    if (isOwner) CommentActions(comment: comment),
-                  ],
-                ),
+                  ),
               ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: 8),
+
+            // コメント本文
+            Text(
+              comment.content,
+              style: const TextStyle(fontSize: 15),
+            ),
+
+            const SizedBox(height: 8),
+
+            // いいねボタンとカウント
+            Row(
+              children: [
+                // いいねボタン
+                LikeButton(
+                  commentId: comment.id,
+                  likes: likesCount,
+                ),
+
+                const Spacer(),
+
+                // 自分のコメントの場合は編集・削除メニュー
+                if (isOwner) CommentActions(comment: comment),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  // 日付フォーマット
+  String _formatDate(Timestamp timestamp) {
+    final date = timestamp.toDate(); // Timestamp を DateTime に変換
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays < 1) {
+      if (difference.inHours < 1) {
+        return '${difference.inMinutes}分前';
+      }
+      return '${difference.inHours}時間前';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}日前';
+    } else {
+      return '${date.year}/${date.month}/${date.day}';
+    }
+  }
 }
 
-// CommentsSection クラスの定義を追加
+// コメントセクション
 class CommentsSection extends ConsumerStatefulWidget {
   final String reviewId;
   final String collectionName;
@@ -395,138 +362,45 @@ class LikeButton extends ConsumerWidget {
 }
 
 class _CommentInputFormState extends ConsumerState<CommentInputForm> {
-  final _controller = TextEditingController();
+  final TextEditingController _controller = TextEditingController();
   bool _isSubmitting = false;
-  bool _isFocused = false;
+  bool _checkedRealName = false;
 
   @override
   Widget build(BuildContext context) {
-    // 現在のユーザー状態を取得
-    final user = FirebaseAuth.instance.currentUser;
-    final isAnonymous = user?.isAnonymous ?? true;
-    final isLoggedIn = user != null && !isAnonymous;
-    final userAsync =
-        isLoggedIn ? ref.watch(user_provider.userProvider(user.uid)) : null;
-
-    // ゲストユーザーの場合はログインを促すメッセージを表示
-    if (!isLoggedIn) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text('学外orゲストの方はコメントを投稿できません'),
-            const SizedBox(height: 8),
-          ],
-        ),
-      );
-    }
-
-    // YouTubeスタイルのコメント入力フォーム
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ユーザーアバター
-          userAsync?.when(
-                data: (profile) => CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.grey.shade200,
-                  backgroundImage: profile?.photoURL != null
-                      ? NetworkImage(profile!.photoURL!)
-                      : null,
-                  child: profile?.photoURL == null
-                      ? Icon(Icons.person, color: Colors.grey.shade700)
-                      : null,
-                ),
-                loading: () => CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.grey.shade300,
-                  child: const SizedBox(
-                    width: 15,
-                    height: 15,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-                error: (_, __) => CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.grey.shade300,
-                  child: Icon(Icons.person, color: Colors.grey.shade700),
-                ),
-              ) ??
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.grey.shade300,
-                child: Icon(Icons.person, color: Colors.grey.shade700),
-              ),
-
-          const SizedBox(width: 12),
-
-          // コメント入力フィールド
-          Expanded(
-            child: Focus(
-              onFocusChange: (hasFocus) {
-                setState(() {
-                  _isFocused = hasFocus;
-                });
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: 'コメントを追加...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(
-                          color: _isFocused
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey.shade300,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    maxLines: 3,
-                    minLines: 1,
-                  ),
-
-                  // 送信ボタン (フォーカス時のみ表示)
-                  if (_isFocused)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submitComment,
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                          ),
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Text('コメント'),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          hintText: 'コメントを入力...',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24.0),
+            borderSide: BorderSide.none,
           ),
-        ],
+          filled: true,
+          fillColor: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withOpacity(0.5),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          // 送信ボタンを右側に配置
+          suffixIcon: IconButton(
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.0),
+                  )
+                : const Icon(Icons.send),
+            onPressed: _isSubmitting ? null : _submitComment,
+          ),
+        ),
+        maxLines: 3,
+        minLines: 1,
+        textInputAction: TextInputAction.send,
+        onSubmitted: (_) => _submitComment(),
       ),
     );
   }
@@ -537,148 +411,190 @@ class _CommentInputFormState extends ConsumerState<CommentInputForm> {
     super.dispose();
   }
 
-  // ニックネームチェックメソッド
-  Future<bool> _checkDisplayName() async {
-    // 最新のユーザー情報を取得するために再認証
-    await FirebaseAuth.instance.currentUser?.reload();
+  @override
+  void initState() {
+    super.initState();
+    // コンポーネントがマウントされたら本名チェックを実行
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfUsingRealName();
+    });
+  }
+
+  // 本名を使用しているかチェックする
+  Future<void> _checkIfUsingRealName() async {
+    if (_checkedRealName) return; // 既にチェック済みなら実行しない
+
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
 
-    if (user == null || user.isAnonymous) {
-      print("User is null or anonymous");
-      return true; // 匿名ユーザーの場合はチェックしない
-    }
+    try {
+      // Firestoreからユーザー情報を取得
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-    // Firestoreから最新のユーザー情報を取得
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+      // hasSetNicknameフラグを確認
+      final hasSetNickname =
+          userDoc.data()?['hasSetNickname'] as bool? ?? false;
 
-    // Firestoreのデータを取得
-    final firestoreDisplayName =
-        userDoc.exists && userDoc.data()?['displayName'] != null
-            ? userDoc.data()!['displayName'] as String
-            : null;
+      // フラグがfalseの場合のみ警告を表示
+      if (!hasSetNickname) {
+        final displayName = userDoc.data()?['displayName'] as String? ??
+            user.displayName ??
+            'Unknown';
 
-    // Googleアカウント側の表示名
-    final googleDisplayName = user.displayName;
+        print('警告: ニックネーム未設定 - "$displayName"');
 
-    // デバッグ情報をコンソールに出力
-    print("FirebaseAuth名前: $googleDisplayName");
-    print("Firestore名前: $firestoreDisplayName");
-
-    // メールアドレスが@ous.jpで終わる場合のみチェック
-    if (user.email != null && user.email!.endsWith('@ous.jp')) {
-      // 本名らしい名前かどうかをチェック
-      final isLikelyRealName = googleDisplayName != null &&
-          (googleDisplayName.contains(' ') || // スペースを含む
-              (user.email != null &&
-                  googleDisplayName ==
-                      user.email!.split('@').first) || // メールアドレスの@前と一致
-              (googleDisplayName.length >= 2 &&
-                  googleDisplayName.length <= 4 &&
-                  RegExp(r'[\u4e00-\u9faf]')
-                      .hasMatch(googleDisplayName)) // 漢字を含む2〜4文字の名前
-          );
-
-      // Firestoreに既にニックネームが設定されているかどうか
-      final hasCustomNickname = firestoreDisplayName != null &&
-          firestoreDisplayName != googleDisplayName;
-
-      // 本名らしい名前で、かつカスタムニックネームが設定されていない場合
-      if (isLikelyRealName && !hasCustomNickname) {
-        print("本名らしい名前です。ポップアップを表示します。");
-
-        // ダイアログを表示して結果を待つ
-        final result = await showDialog<String>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('ニックネームの設定'),
-            content: Text(
-              'コメントには現在の表示名「$googleDisplayName」が使用されます。プライバシー保護のため、ニックネームの使用をおすすめします。',
-            ),
-            actionsAlignment: MainAxisAlignment.end, // ボタンを右寄せに
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'cancel'), // キャンセル
-                child: const Text('キャンセル'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'continue'), // このまま送信
-                child: const Text('このまま送信'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context, 'change'); // 変更する
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => MyPageEdit()),
-                  );
-                },
-                child: const Text('名前を変更'),
-              ),
-            ],
-          ),
-        );
-
-        if (result == 'change') {
-          // 名前変更画面に遷移し、結果を待つ
-          final nameChanged = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(builder: (context) => MyPageEdit()),
-          );
-
-          // 名前を変更して戻ってきた場合は投稿を続行
-          return nameChanged == true;
+        if (mounted) {
+          // 警告ダイアログを表示
+          _showRealNameWarning(context, displayName);
         }
-
-        return result == 'continue'; // 「このまま送信」の場合のみtrue
-      } else {
-        print("本名ではないか、既にニックネームが設定されています。ポップアップを表示しません。");
       }
-    }
 
-    return true; // 条件に該当しない場合は投稿を続行
+      setState(() {
+        _checkedRealName = true;
+      });
+    } catch (e) {
+      print('本名チェックエラー: $e');
+    }
+  }
+
+  // 本名警告ダイアログを表示
+  Future<bool> _showRealNameWarning(
+      BuildContext context, String displayName) async {
+    // ダイアログの結果を返すための変数
+    bool shouldProceed = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('本名を使用している可能性があります'),
+        content: Text(
+          'あなたは「$displayName」という名前でコメントします。これが本名の場合、プライバシー保護のためにニックネームに変更することをお勧めします。',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              shouldProceed = true; // そのまま送信
+              Navigator.pop(context);
+            },
+            child: const Text('このまま送信'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // ダイアログを閉じる
+            },
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // 名前変更画面に遷移
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const MyPageEdit(),
+                ),
+              );
+
+              // 名前変更画面から戻ってきた場合
+              if (context.mounted) {
+                Navigator.pop(context); // ダイアログを閉じる
+
+                // 名前が変更された場合は送信を続行
+                if (result == true) {
+                  shouldProceed = true;
+                }
+              }
+            },
+            child: const Text('名前を変更する'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldProceed;
   }
 
   Future<void> _submitComment() async {
-    if (_controller.text.trim().isEmpty) return;
-
-    // コメント投稿前にニックネームチェック
-    final shouldContinue = await _checkDisplayName();
-    if (!shouldContinue) return; // ユーザーが「後で」を選択した場合は投稿をキャンセル
+    final content = _controller.text.trim();
+    if (content.isEmpty) return;
 
     setState(() {
       _isSubmitting = true;
     });
 
     try {
+      // 本名チェックを実行
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && !user.isAnonymous && !_checkedRealName) {
+        // Firestoreからユーザー情報を取得
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        // hasSetNicknameフラグを確認
+        final hasSetNickname =
+            userDoc.data()?['hasSetNickname'] as bool? ?? false;
+
+        // フラグがfalseの場合のみ警告を表示
+        if (!hasSetNickname && mounted) {
+          final displayName = userDoc.data()?['displayName'] as String? ??
+              user.displayName ??
+              'Unknown';
+
+          // 警告ダイアログを表示し、続行するかどうかを確認
+          final shouldProceed =
+              await _showRealNameWarning(context, displayName);
+
+          // 続行しない場合は処理を中断
+          if (!shouldProceed) {
+            setState(() {
+              _isSubmitting = false;
+            });
+            return;
+          }
+
+          // チェック済みフラグを設定
+          setState(() {
+            _checkedRealName = true;
+          });
+        }
+      }
+
+      // コメントを送信
       await ref.read(
         comment_provider.addCommentProvider(
           (
             reviewId: widget.reviewId,
             collectionName: widget.collectionName,
-            content: _controller.text.trim(),
+            content: content,
           ),
         ).future,
       );
-
       _controller.clear();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('コメントの投稿に失敗しました: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('コメントの投稿に失敗しました: $e')),
+        );
+      }
     } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 }
 
 class _CommentsSectionState extends ConsumerState<CommentsSection> {
-  // 表示するコメント数の初期値
+  // 表示するコメントの最大数（初期値）
   static const int _initialCommentCount = 3;
+
+  // すべてのコメントを表示するかどうか
   bool _showAllComments = false;
 
   @override
@@ -690,6 +606,28 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
     final sortOrder = ref.watch(comment_provider.commentSortOrderProvider);
     final commentCount = commentsAsync.value?.length ?? 0;
 
+    // ユーザー情報を取得
+    final isOusUser = ref.watch(user_provider.isOusUserProvider);
+
+    // デバッグ情報
+    print(
+      'CommentsSection build: reviewId=${widget.reviewId}, commentCount=$commentCount',
+    );
+    print(
+        'CommentsSection sortedComments: hasValue=${sortedComments.hasValue}, '
+        'hasError=${sortedComments.hasError}, '
+        'isLoading=${sortedComments.isLoading}');
+
+    if (sortedComments.hasValue && sortedComments.value != null) {
+      print(
+        'CommentsSection sortedComments.value.length=${sortedComments.value?.length}',
+      );
+    }
+
+    if (sortedComments.hasError) {
+      print('CommentsSection sortedComments.error=${sortedComments.error}');
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -697,167 +635,157 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'コメント',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (commentsAsync.hasValue)
-                Text(
-                  '($commentCount)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade600,
+              Row(
+                children: [
+                  const Text(
+                    'コメント',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              const Spacer(),
-              // 並べ替えドロップダウン
-              if (commentCount > 1)
-                DropdownButton<comment_provider.CommentSortOrder>(
-                  value: sortOrder,
-                  underline: const SizedBox(),
-                  icon: const Icon(Icons.sort),
-                  onChanged: (comment_provider.CommentSortOrder? newValue) {
-                    if (newValue != null) {
-                      ref
-                          .read(
-                            comment_provider.commentSortOrderProvider.notifier,
-                          )
-                          .state = newValue;
-                    }
-                  },
-                  items: [
-                    DropdownMenuItem(
-                      value: comment_provider.CommentSortOrder.newest,
-                      child: const Text('新しい順'),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
                     ),
-                    DropdownMenuItem(
-                      value: comment_provider.CommentSortOrder.oldest,
-                      child: const Text('古い順'),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    DropdownMenuItem(
-                      value: comment_provider.CommentSortOrder.mostLiked,
-                      child: const Text('人気順'),
+                    child: Text(
+                      '$commentCount',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
+              // ソートボタン
+              DropdownButton<comment_provider.CommentSortOrder>(
+                value: sortOrder,
+                underline: const SizedBox(),
+                icon: const Icon(Icons.sort),
+                onChanged: (value) {
+                  if (value != null) {
+                    ref
+                        .read(
+                          comment_provider.commentSortOrderProvider.notifier,
+                        )
+                        .state = value;
+                  }
+                },
+                items: const [
+                  DropdownMenuItem(
+                    value: comment_provider.CommentSortOrder.newest,
+                    child: Text('新しい順'),
+                  ),
+                  DropdownMenuItem(
+                    value: comment_provider.CommentSortOrder.oldest,
+                    child: Text('古い順'),
+                  ),
+                  DropdownMenuItem(
+                    value: comment_provider.CommentSortOrder.mostLiked,
+                    child: Text('いいね順'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
 
-        // コメント入力フォーム
-        CommentInputForm(
-          reviewId: widget.reviewId,
-          collectionName: widget.collectionName,
-        ),
+        // コメント入力フィールドの表示条件を確認
+        if (isOusUser)
+          // 学内ユーザー向けのコメント入力フィールドを表示
+          CommentInputForm(
+            reviewId: widget.reviewId,
+            collectionName: widget.collectionName,
+          )
+        else
+          // 学外ユーザー向けのメッセージを表示
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Text('学内ユーザーのみコメントを投稿できます'),
+          ),
 
-        const Divider(),
+        // コメントリストを表示
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: sortedComments.when(
+            data: (comments) {
+              if (comments.isEmpty) {
+                return const Center(
+                  child: Text('コメントはまだありません'),
+                );
+              }
 
-        // コメント一覧
-        commentsAsync.when(
-          data: (comments) {
-            if (comments.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(
-                  child: Text('まだコメントはありません'),
-                ),
-              );
-            }
+              // 表示するコメントの数を決定
+              final displayComments = _showAllComments
+                  ? comments
+                  : comments.take(_initialCommentCount).toList();
 
-            // 並べ替え済みのコメントを使用
-            final sortedList = sortedComments ?? comments;
+              return Column(
+                children: [
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: displayComments.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final comment = displayComments[index];
+                      return CommentItem(comment: comment);
+                    },
+                  ),
 
-            // 表示するコメントのリスト
-            final displayedComments = _showAllComments
-                ? sortedList
-                : sortedList.take(_initialCommentCount).toList();
-
-            return Column(
-              children: [
-                // コメントリスト
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: displayedComments.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final comment = displayedComments[index];
-                    return CommentItem(comment: comment);
-                  },
-                ),
-
-                // もっと見るボタン
-                if (sortedList.length > _initialCommentCount)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _showAllComments = !_showAllComments;
-                        });
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _showAllComments
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
+                  // 「もっと見る」ボタンの表示条件
+                  if (comments.length > _initialCommentCount)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _showAllComments = !_showAllComments;
+                          });
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(8.0),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _showAllComments
-                                ? '折りたたむ'
-                                : '${sortedList.length - _initialCommentCount}件のコメントをもっと見る',
+                          child: Center(
+                            child: Text(
+                              _showAllComments
+                                  ? '折りたたむ'
+                                  : '${comments.length - _initialCommentCount}件のコメントをもっと見る',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          },
-          loading: () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
+                ],
+              );
+            },
+            loading: () => const Center(
               child: CircularProgressIndicator(),
             ),
+            error: (error, stack) => Center(
+              child: Text('エラーが発生しました: $error'),
+            ),
           ),
-          error: (error, stack) {
-            // エラーをコンソールに出力
-            print('コメント取得エラー: $error');
-            print('スタックトレース: $stack');
-
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    Text('エラーが発生しました: $error'),
-                    TextButton(
-                      onPressed: () => ref.refresh(
-                        comment_provider.commentsProvider(widget.reviewId),
-                      ),
-                      child: const Text('再読み込み'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
         ),
       ],
     );
