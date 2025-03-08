@@ -95,6 +95,7 @@ class ShareService {
       if (byteData == null) return null;
 
       final bytes = byteData.buffer.asUint8List();
+
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/review_share.png');
       await file.writeAsBytes(bytes);

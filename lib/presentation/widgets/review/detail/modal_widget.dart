@@ -103,7 +103,9 @@ class ModalWidgetState extends State<ModalWidget> {
                       icon: const FaIcon(FontAwesomeIcons.instagram),
                       padding: const EdgeInsets.all(20),
                       onPressed: () => ShareService.shareToInstagram(
-                          widget.review, globalKey),
+                        widget.review,
+                        globalKey,
+                      ),
                     ),
                     const Text('Instagram'),
                   ],
